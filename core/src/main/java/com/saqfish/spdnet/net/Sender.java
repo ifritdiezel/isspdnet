@@ -27,6 +27,14 @@ public class Sender {
                 if(net.socket().connected()&& message != null) net.socket().emit(Events.MESSAGE, type, message);
         }
 
+        public void sendChat(String data) {
+                String json;
+                Send.Chat c = new Send.Chat(data);
+                json = map(c);
+                if(net.socket().connected()&& data != null) net.socket().emit(Events.CHAT, json);
+        }
+
+
         public void sendAction(int type, int... data) {
                 String json = "";
                 switch (type) {

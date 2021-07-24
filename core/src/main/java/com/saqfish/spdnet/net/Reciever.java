@@ -26,6 +26,10 @@ public class Reciever {
                         String data = (String) args[0];
                         handleMessage(data);
                 };
+                Emitter.Listener onChat = args -> {
+                        String data = (String) args[1];
+                        handleChat(data);
+                };
                 Emitter.Listener onAction = args -> {
                         int type = (int) args[0];
                         String data = (String) args[1];
@@ -36,6 +40,7 @@ public class Reciever {
                         handleMotd(data);
                 };
                 net.socket().on(Events.ACTION, onAction);
+                net.socket().on(Events.CHAT, onChat);
                 net.socket().on(Events.MESSAGE, onMessage);
                 net.socket().once(Events.MOTD, onMotd);
         }
@@ -43,6 +48,7 @@ public class Reciever {
         public void cancelAll(){
                 net.socket().off(Events.ACTION);
                 net.socket().off(Events.MESSAGE);
+                net.socket().off(Events.CHAT);
                 net.socket().off(Events.MOTD);
         }
 
@@ -50,6 +56,16 @@ public class Reciever {
                 try{
                         Send.Message message = mapper.readValue(json, Send.Message.class);
                         NetWindow.message(message.data);
+                } catch (JsonProcessingException e) {
+                        e.printStackTrace();
+                }
+        }
+
+        public void handleChat(String json){
+                try{
+                        Receive.Chat message = mapper.readValue(json, Receive.Chat.class);
+                        GLog.e(message.nick + ": " + message.data);
+                        GLog.newLine();
                 } catch (JsonProcessingException e) {
                         e.printStackTrace();
                 }

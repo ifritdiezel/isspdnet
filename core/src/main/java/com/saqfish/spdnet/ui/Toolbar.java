@@ -25,12 +25,14 @@ import com.saqfish.spdnet.Assets;
 import com.saqfish.spdnet.Dungeon;
 import com.saqfish.spdnet.SPDAction;
 import com.saqfish.spdnet.SPDSettings;
+import com.saqfish.spdnet.ShatteredPixelDungeon;
 import com.saqfish.spdnet.items.Item;
 import com.saqfish.spdnet.messages.Messages;
 import com.saqfish.spdnet.scenes.CellSelector;
 import com.saqfish.spdnet.scenes.GameScene;
 import com.saqfish.spdnet.sprites.ItemSprite;
 import com.saqfish.spdnet.tiles.DungeonTerrainTilemap;
+import com.saqfish.spdnet.utils.GLog;
 import com.saqfish.spdnet.windows.WndBag;
 import com.saqfish.spdnet.windows.WndQuickBag;
 import com.watabou.input.GameAction;
@@ -41,11 +43,15 @@ import com.watabou.noosa.Image;
 import com.watabou.noosa.PointerArea;
 import com.watabou.noosa.ui.Button;
 import com.watabou.noosa.ui.Component;
+import com.watabou.utils.PlatformSupport;
 import com.watabou.utils.Point;
 import com.watabou.utils.PointF;
 
+import static com.watabou.noosa.Game.platform;
+
 public class Toolbar extends Component {
 
+	private Tool btnChat;
 	private Tool btnWait;
 	private Tool btnSearch;
 	private Tool btnInventory;
@@ -98,6 +104,23 @@ public class Toolbar extends Component {
 				examining = false;
 				Dungeon.hero.rest(true);
 				return true;
+			}
+		});
+
+		add(btnChat = new Tool(128, 0, 20, 26) {
+			@Override
+			protected void onClick() {
+				examining = false;
+				platform.promptTextInput("Chat", " ", 40, false, "Send", "Cancel", new PlatformSupport.TextCallback() {
+					@Override
+					public void onSelect(boolean positive, String text) {
+						if(positive){
+							ShatteredPixelDungeon.net().sender().sendChat(text);
+							GLog.e("You:");
+							GLog.e(text);
+						}
+					}
+				});
 			}
 		});
 
@@ -197,6 +220,7 @@ public class Toolbar extends Component {
 			case SPLIT:
 				btnWait.setPos(x, y);
 				btnSearch.setPos(btnWait.right(), y);
+				btnChat.setPos(btnSearch.right(), y);
 
 				btnInventory.setPos(right - btnInventory.width(), y);
 

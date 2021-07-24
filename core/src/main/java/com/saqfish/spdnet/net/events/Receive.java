@@ -7,6 +7,7 @@ public class Receive {
     public static final int LEAVE = 3;
     public static final int ITEM = 4;
     public static final int DEATH = 5;
+    public static final int CHAT = 6;
 
 
     public static class Motd {
@@ -77,5 +78,10 @@ public class Receive {
         public String nick;
         public int depth;
         public int pos;
+    }
+
+    public static class Chat {
+        public String nick;
+        public String data;
     }
 }

@@ -21,6 +21,14 @@ public class Send {
     public static final int MOVE = 1;
     public static final int ITEM = 2;
     public static final int DEATH = 3;
+    public static final int CHAT = 4;
+
+    public static class Chat{
+        public String data;
+        public Chat (String data){
+            this.data = data;
+        }
+    }
 
     public static class Message {
         public int type;
