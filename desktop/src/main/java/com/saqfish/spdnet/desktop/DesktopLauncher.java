@@ -122,14 +122,14 @@ public class DesktopLauncher {
 		String basePath = "";
 		if (SharedLibraryLoader.isWindows) {
 			if (System.getProperties().getProperty("os.name").equals("Windows XP")) {
-				basePath = "Application Data/.spdnet/spdnet/";
+				basePath = "Application Data/.isspdnet/isspdnet/";
 			} else {
-				basePath = "AppData/Roaming/.spdnet/spdnet/";
+				basePath = "AppData/Roaming/.isspdnet/isspdnet/";
 			}
 		} else if (SharedLibraryLoader.isMac) {
-			basePath = "Library/Application Support/spdnet/";
+			basePath = "Library/Application Support/isspdnet/";
 		} else if (SharedLibraryLoader.isLinux) {
-			basePath = ".spdnet/spdnet/";
+			basePath = ".isspdnet/isspdnet/";
 		}
 
 		//copy over prefs from old file location from legacy desktop codebase

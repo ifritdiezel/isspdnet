@@ -11,8 +11,8 @@ buildscript {
 allprojects {
 
     ext {
-        appName = 'SPDNet'
-        appPackageName = 'com.saqfish.spdnet'
+        appName = 'IS-SPDNet'
+        appPackageName = 'com.ifritdiezel.isspdnet'
 
         appVersionCode = 554
         appVersionName = '0.9.3c'
