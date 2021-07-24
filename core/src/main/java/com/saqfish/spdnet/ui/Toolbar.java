@@ -111,10 +111,10 @@ public class Toolbar extends Component {
 			@Override
 			protected void onClick() {
 				examining = false;
-				platform.promptTextInput("Chat", " ", 40, false, "Send", "Cancel", new PlatformSupport.TextCallback() {
+				platform.promptTextInput("Chat", " ", 80, false, "Send", "Cancel", new PlatformSupport.TextCallback() {
 					@Override
 					public void onSelect(boolean positive, String text) {
-						if(positive){
+						if(positive && text.trim().length()!=0){
 							ShatteredPixelDungeon.net().sender().sendChat(text);
 							GLog.e("You:");
 							GLog.e(text);
