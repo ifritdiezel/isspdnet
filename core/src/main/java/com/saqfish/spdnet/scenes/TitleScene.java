@@ -161,7 +161,7 @@ public class TitleScene extends PixelScene {
 									Settings.scheme(url.getScheme());
 									Settings.address(url.getHost());
 									Settings.port(url.getPort());
-									platform.promptTextInput("Enter key", Settings.auth_key(), 20, false, "Set", "Cancel", new PlatformSupport.TextCallback() {
+									platform.promptTextInput("Enter key", Settings.auth_key(), 50, false, "Set", "Cancel", new PlatformSupport.TextCallback() {
 										@Override
 										public void onSelect(boolean positive, String text) {
 											if(positive){

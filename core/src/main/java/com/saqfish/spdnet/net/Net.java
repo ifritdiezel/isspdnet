@@ -18,9 +18,9 @@ import static java.util.Collections.singletonMap;
 
 public class Net {
     public static String DEFAULT_SCHEME = "http";
-    public static String DEFAULT_HOST = "saqfish.com";
-    public static int DEFAULT_PORT = 5800;
-    public static String DEFAULT_KEY = "debug";
+    public static String DEFAULT_HOST = "ifritserv.zapto.org";
+    public static int DEFAULT_PORT = 9090;
+    public static String DEFAULT_KEY = "none";
 
     private Socket socket;
     private Reciever reciever;
