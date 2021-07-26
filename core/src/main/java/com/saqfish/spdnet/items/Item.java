@@ -31,12 +31,14 @@ import com.saqfish.spdnet.actors.buffs.Buff;
 import com.saqfish.spdnet.actors.buffs.Degrade;
 import com.saqfish.spdnet.actors.hero.Hero;
 import com.saqfish.spdnet.actors.hero.Talent;
+import com.saqfish.spdnet.actors.mobs.Mob;
 import com.saqfish.spdnet.effects.Speck;
 import com.saqfish.spdnet.items.bags.Bag;
 import com.saqfish.spdnet.items.weapon.missiles.MissileWeapon;
 import com.saqfish.spdnet.journal.Catalog;
 import com.saqfish.spdnet.mechanics.Ballistica;
 import com.saqfish.spdnet.messages.Messages;
+import com.saqfish.spdnet.net.actor.Player;
 import com.saqfish.spdnet.scenes.CellSelector;
 import com.saqfish.spdnet.scenes.GameScene;
 import com.saqfish.spdnet.sprites.ItemSprite;
@@ -53,6 +55,8 @@ import com.watabou.utils.Reflection;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+
+import static com.saqfish.spdnet.ShatteredPixelDungeon.net;
 
 public class Item implements Bundlable {
 
@@ -164,6 +168,10 @@ public class Item implements Bundlable {
 		if (!heap.isEmpty()) {
 			heap.sprite.drop( cell );
 		}
+
+		Mob m = Dungeon.level.findMob(cell);
+		if(m instanceof Player)
+			net().sender().sendTransfer(this, ((Player)m).socketid(), heap);
 	}
 	
 	//takes two items and merges them (if possible)

@@ -28,17 +28,17 @@ import com.saqfish.spdnet.Dungeon;
 import com.saqfish.spdnet.QuickSlot;
 import com.saqfish.spdnet.actors.hero.abilities.ArmorAbility;
 import com.saqfish.spdnet.actors.hero.abilities.huntress.NaturesPower;
-import com.saqfish.spdnet.actors.hero.abilities.huntress.SpiritHawk;
 import com.saqfish.spdnet.actors.hero.abilities.huntress.SpectralBlades;
-import com.saqfish.spdnet.actors.hero.abilities.mage.WildMagic;
-import com.saqfish.spdnet.actors.hero.abilities.mage.WarpBeacon;
+import com.saqfish.spdnet.actors.hero.abilities.huntress.SpiritHawk;
 import com.saqfish.spdnet.actors.hero.abilities.mage.ElementalBlast;
+import com.saqfish.spdnet.actors.hero.abilities.mage.WarpBeacon;
+import com.saqfish.spdnet.actors.hero.abilities.mage.WildMagic;
 import com.saqfish.spdnet.actors.hero.abilities.rogue.DeathMark;
 import com.saqfish.spdnet.actors.hero.abilities.rogue.ShadowClone;
 import com.saqfish.spdnet.actors.hero.abilities.rogue.SmokeBomb;
+import com.saqfish.spdnet.actors.hero.abilities.warrior.Endure;
 import com.saqfish.spdnet.actors.hero.abilities.warrior.HeroicLeap;
 import com.saqfish.spdnet.actors.hero.abilities.warrior.Shockwave;
-import com.saqfish.spdnet.actors.hero.abilities.warrior.Endure;
 import com.saqfish.spdnet.items.BrokenSeal;
 import com.saqfish.spdnet.items.Item;
 import com.saqfish.spdnet.items.Waterskin;
@@ -64,7 +64,6 @@ import com.saqfish.spdnet.items.weapon.melee.WornShortsword;
 import com.saqfish.spdnet.items.weapon.missiles.ThrowingKnife;
 import com.saqfish.spdnet.items.weapon.missiles.ThrowingStone;
 import com.saqfish.spdnet.messages.Messages;
-import com.watabou.utils.DeviceCompat;
 
 public enum HeroClass {
 
@@ -286,18 +285,7 @@ public enum HeroClass {
 	
 	public boolean isUnlocked(){
 		//always unlock on debug builds
-		if (DeviceCompat.isDebug()) return true;
-		
-		switch (this){
-			case WARRIOR: default:
-				return true;
-			case MAGE:
-				return Badges.isUnlocked(Badges.Badge.UNLOCK_MAGE);
-			case ROGUE:
-				return Badges.isUnlocked(Badges.Badge.UNLOCK_ROGUE);
-			case HUNTRESS:
-				return Badges.isUnlocked(Badges.Badge.UNLOCK_HUNTRESS);
-		}
+		return true;
 	}
 	
 	public String unlockMsg() {

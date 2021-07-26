@@ -2,8 +2,12 @@ package com.saqfish.spdnet.net;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.saqfish.spdnet.items.Heap;
+import com.saqfish.spdnet.items.Item;
 import com.saqfish.spdnet.net.events.Events;
 import com.saqfish.spdnet.net.events.Send;
+
+import io.socket.client.Ack;
 
 public class Sender {
         private ObjectMapper mapper;
@@ -16,6 +20,16 @@ public class Sender {
 
         public void sendPlayerListRequest(){
                 net.socket().emit(Events.PLAYERLISTREQUEST, 0);
+        }
+
+        public void sendTransfer(Item i, String id, Heap h) {
+                Send.Transfer item = new Send.Transfer(i, id);
+                net.socket().emit(Events.TRANSFER, map(item), (Ack) args -> {
+                    try {
+                            Boolean enabled = (Boolean)args[0];
+                            if(enabled) h.remove(i);
+                    }catch(Exception e){ }
+                });
         }
 
         public void sendAction(int type, String s) {

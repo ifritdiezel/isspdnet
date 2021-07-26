@@ -241,14 +241,16 @@ public class Toolbar extends Component {
 
 			//center = group but.. well.. centered, so all we need to do is pre-emptively set the right side further in.
 			case CENTER:
-				float toolbarWidth = btnWait.width() + btnSearch.width() + btnInventory.width();
+
+				float toolbarWidth = btnWait.width() + btnSearch.width() + btnInventory.width() + btnChat.width();
 				for(Button slot : btnQuick){
 					if (slot.visible) toolbarWidth += slot.width();
 				}
 				right = (width + toolbarWidth)/2;
 
 			case GROUP:
-				btnWait.setPos(right - btnWait.width(), y);
+				btnChat.setPos(right - btnWait.width(), y);
+				btnWait.setPos(btnChat.left() - btnSearch.width(), y);
 				btnSearch.setPos(btnWait.left() - btnSearch.width(), y);
 				btnInventory.setPos(btnSearch.left() - btnInventory.width(), y);
 
@@ -273,6 +275,7 @@ public class Toolbar extends Component {
 			btnWait.setPos( (right - btnWait.right()), y);
 			btnSearch.setPos( (right - btnSearch.right()), y);
 			btnInventory.setPos( (right - btnInventory.right()), y);
+			btnChat.setPos( (right - btnChat.right()), y);
 
 			for(int i = 0; i <= 3; i++) {
 				btnQuick[i].setPos( right - btnQuick[i].right(), y+2);

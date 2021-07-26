@@ -15,6 +15,10 @@ public class Receive {
         public long seed;
     }
 
+    public static class Transfer {
+        public String className;
+    }
+
     public static class Player {
         public String nick;
         public Integer playerClass;

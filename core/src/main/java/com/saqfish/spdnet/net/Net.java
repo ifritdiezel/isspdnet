@@ -1,18 +1,18 @@
 package com.saqfish.spdnet.net;
-import java.net.URI;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.saqfish.spdnet.net.events.Events;
 import com.saqfish.spdnet.net.windows.NetWindow;
 import com.saqfish.spdnet.net.windows.WndServerInfo;
 import com.watabou.noosa.Game;
 
+import org.json.JSONObject;
+
+import java.net.URI;
+
 import io.socket.client.IO;
 import io.socket.client.Socket;
 import io.socket.emitter.Emitter;
-
-import com.fasterxml.jackson.databind.ObjectMapper;
-
-import org.json.JSONObject;
 
 import static java.util.Collections.singletonMap;
 
@@ -103,6 +103,7 @@ public class Net {
         socket.connect();
     }
     public void disconnect(){
+        reciever.cancelAll();
         socket.disconnect();
     }
 
