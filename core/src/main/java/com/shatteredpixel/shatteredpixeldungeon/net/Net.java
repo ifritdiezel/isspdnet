@@ -9,6 +9,7 @@ import com.watabou.noosa.Game;
 import org.json.JSONObject;
 
 import java.net.URI;
+import java.util.Arrays;
 
 import io.socket.client.IO;
 import io.socket.client.Socket;
@@ -23,7 +24,7 @@ public class Net {
     public static String DEFAULT_KEY = "none";
 
     private Socket socket;
-    private Reciever reciever;
+    private Receiver receiver;
     private Sender sender;
     private ObjectMapper mapper;
     private long seed;
@@ -60,25 +61,26 @@ public class Net {
                 .build();
         socket = IO.socket(url, options);
         mapper = new ObjectMapper();
-        reciever = new Reciever(this, mapper);
+        receiver = new Receiver(this, mapper);
         sender = new Sender(this, mapper);
         setupEvents();
     }
 
     public void setupEvents(){
         Emitter.Listener onConnected = args -> {
-            reciever.startAll();
+            receiver.startAll();
             if(w != null) {
                 Game.runOnRenderThread( () -> w.destroy());
             }
         };
 
         Emitter.Listener onDisconnected = args -> {
-            reciever.cancelAll();
+            receiver.cancelAll();
         };
 
         Emitter.Listener onConnectionError = args -> {
             try {
+
                 JSONObject json = (JSONObject)args[0];
                 Events.Error e = mapper().readValue(json.toString(), Events.Error.class);
                 NetWindow.error(e.message);
@@ -86,7 +88,7 @@ public class Net {
                 e.printStackTrace();
                 NetWindow.error("Connection could not be established!");
             }
-            reciever.cancelAll();
+            receiver.cancelAll();
             disconnect();
         };
 
@@ -103,7 +105,7 @@ public class Net {
         socket.connect();
     }
     public void disconnect(){
-        reciever.cancelAll();
+        receiver.cancelAll();
         socket.disconnect();
     }
 
@@ -121,7 +123,7 @@ public class Net {
             endEvents();
             socket = null;
         }
-        reciever = null;
+        receiver = null;
         sender = null;
     }
 

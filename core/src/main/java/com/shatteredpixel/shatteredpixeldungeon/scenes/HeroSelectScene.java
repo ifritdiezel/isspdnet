@@ -184,8 +184,7 @@ public class HeroSelectScene extends PixelScene {
 		}
 
 		netBtn = new NetBtn();
-		//fixingproject
-		netBtn.setRect(0, Camera.main.height-netBtn.HEIGHT+3, netBtn.MIN_WIDTH, netBtn.HEIGHT);
+		netBtn.setRect(0, Camera.main.height-netBtn.HEIGHT+50, netBtn.MIN_WIDTH, netBtn.HEIGHT);
 		add(netBtn);
 
 		optionsPane = new GameOptions();
@@ -562,7 +561,7 @@ public class HeroSelectScene extends PixelScene {
 			super.onClick();
 
 			if( !cl.isUnlocked() ){
-				ShatteredPixelDungeon.scene().addToFront( new WndMessage(cl.unlockMsg()));
+
 			} else if (GamesInProgress.selectedClass == cl) {
 				Window w = new WndHeroInfo(cl);
 				if (landscape()){

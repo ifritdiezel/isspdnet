@@ -1112,9 +1112,6 @@ public class GameScene extends PixelScene {
 	}
 
 	public static void flashForDocument( Document doc, String page ){
-		if (scene != null) {
-			scene.menu.flashForPage( doc, page );
-		}
 	}
 
 	public static void endIntro(){

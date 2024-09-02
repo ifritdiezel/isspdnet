@@ -159,62 +159,38 @@ public class TitleScene extends PixelScene {
 
 			@Override
 			protected boolean onLongClick() {
-//				platform.promptTextInput("Enter host", Settings.uri().toString(), 40, false, "Set", "Cancel", new PlatformSupport.TextCallback() {
-//					@Override
-//					public void onSelect(boolean positive, String text) {
-//							if(positive){
-//								URI url = null;
-//								try {
-//									url = new URI(text);
-//									Settings.scheme(url.getScheme());
-//									Settings.address(url.getHost());
-//									Settings.port(url.getPort());
-//									platform.promptTextInput("Enter key", Settings.auth_key(), 50, false, "Set", "Cancel", new PlatformSupport.TextCallback() {
-//										@Override
-//										public void onSelect(boolean positive, String text) {
-//											if(positive){
-//												Settings.auth_key(text);
-//												net().reset();
-//											}
-//										}
-//									});
-//								} catch (URISyntaxException e) {
-//								}
-//							}
-//					}
-//				});
-//				return true;
-//			}
 				ShatteredPixelDungeon.scene().addToFront( new WndTextInput("Enter hostname",
-						Messages.get(HeroSelectScene.class, "custom_seed_desc"),
-						"???",
+						null,
+						"http://ifritserv.zapto.org:9090",
 						40,
 						false,
-						Messages.get(HeroSelectScene.class, "custom_seed_set"),
-						Messages.get(HeroSelectScene.class, "custom_seed_clear")){
+						"Set",
+						"Cancel"){
 					@Override
 					public void onSelect(boolean positive, String text) {
+						if (!positive) return;
 						URI url = null;
-								try {
-									url = new URI(text);
-									Settings.scheme(url.getScheme());
-									Settings.address(url.getHost());
-									Settings.port(url.getPort());
-									ShatteredPixelDungeon.scene().addToFront( new WndTextInput("Enter key", "Ask the server owner for one!", Settings.auth_key(), 50, false, "Set", "Cancel" ){
-										@Override
-										public void onSelect(boolean positive, String text) {
-											if(positive){
-												Settings.auth_key(text);
-												net().reset();
-											}
-										}
-									});
-								} catch (URISyntaxException e) {}
+						try {
+							url = new URI(text);
+							Settings.scheme(url.getScheme());
+							Settings.address(url.getHost());
+							Settings.port(url.getPort());
+							ShatteredPixelDungeon.scene().addToFront( new WndTextInput("Enter key", "Ask the server owner for one!", Settings.auth_key(), 50, false, "Set", "Cancel" ){
+								@Override
+								public void onSelect(boolean positive, String text) {
+									if(positive){
+										Settings.auth_key(text);
+										net().reset();
+									}
+								}
+							});
+						} catch (URISyntaxException e) {}
 					}
 				});
 
 				return true;
-			};};
+			}
+		};
 
 		btnConnection.icon(NetIcons.get(NetIcons.GLOBE));
 		btnConnection.icon().scale.set(PixelScene.align(0.8f));

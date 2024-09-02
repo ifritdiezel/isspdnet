@@ -120,8 +120,10 @@ public class PlayerSprite extends MobSprite {
 				return Assets.Sprites.ROGUE;
 			case 3:
 				return Assets.Sprites.HUNTRESS;
+			case 4:
+				return Assets.Sprites.DUELIST;
 		}
-		return Assets.Sprites.ROGUE;
+		return Assets.Sprites.WARRIOR;
 	}
 
 	@Override

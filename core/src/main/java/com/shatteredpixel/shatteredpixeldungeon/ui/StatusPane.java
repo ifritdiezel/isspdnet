@@ -232,7 +232,7 @@ public class StatusPane extends Component {
 			heroInfoOnBar.setRect(heroInfo.right(), y, 50, 9);
 
 		connected.setPos( width - connected.width(), 20);
-		danger.setPos( width - danger.width(), connected.bottom() );
+		//danger.setPos( width - danger.width(), connected.bottom() );
 			buffs.setRect( x + 31, y + 9, 50, 8 );
 
 			busy.x = x + 1;

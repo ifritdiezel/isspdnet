@@ -16,11 +16,11 @@ import com.watabou.utils.Reflection;
 
 import io.socket.emitter.Emitter;
 
-public class Reciever {
+public class Receiver {
         private ObjectMapper mapper;
         private Net net;
 
-        public Reciever(Net net, ObjectMapper mapper) {
+        public Receiver(Net net, ObjectMapper mapper) {
                 this.net = net;
                 this.mapper = mapper;
         }

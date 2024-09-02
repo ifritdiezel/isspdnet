@@ -232,11 +232,11 @@ public class SPDSettings extends GameSettings {
 	public static final String KEY_SUPPORT_NAGGED= "support_nagged";
 	
 	public static void intro( boolean value ) {
-		put( KEY_INTRO, value );
+		put( KEY_INTRO, false );
 	}
 	
 	public static boolean intro() {
-		return getBoolean( KEY_INTRO, true );
+		return false;
 	}
 	
 	public static void lastClass( int value ) {

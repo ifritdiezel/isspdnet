@@ -366,6 +366,7 @@ public class InterlevelScene extends PixelScene {
 
 			Level level = Dungeon.newLevel();
 			Dungeon.switchLevel( level, -1 );
+			ShatteredPixelDungeon.net().sender().sendAction(Send.INTERLEVEL, Dungeon.hero.heroClass.ordinal(), Dungeon.depth, level.entrance);
 		} else {
 			Mob.holdAllies( Dungeon.level );
 			Dungeon.saveAll();
