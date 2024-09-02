@@ -3,7 +3,7 @@
  * Copyright (C) 2012-2015 Oleg Dolya
  *
  * Shattered Pixel Dungeon
- * Copyright (C) 2014-2021 Evan Debenham
+ * Copyright (C) 2014-2024 Evan Debenham
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -21,27 +21,29 @@
 
 package com.shatteredpixel.shatteredpixeldungeon.levels.features;
 
-import com.shatteredpixel.shatteredpixeldungeon.Assets;
 import com.shatteredpixel.shatteredpixeldungeon.Dungeon;
 import com.shatteredpixel.shatteredpixeldungeon.ShatteredPixelDungeon;
 import com.shatteredpixel.shatteredpixeldungeon.actors.Actor;
 import com.shatteredpixel.shatteredpixeldungeon.actors.Char;
 import com.shatteredpixel.shatteredpixeldungeon.actors.buffs.Buff;
-import com.shatteredpixel.shatteredpixeldungeon.actors.buffs.Invisibility;
 import com.shatteredpixel.shatteredpixeldungeon.actors.hero.Hero;
 import com.shatteredpixel.shatteredpixeldungeon.actors.hero.HeroClass;
 import com.shatteredpixel.shatteredpixeldungeon.actors.hero.Talent;
+import com.shatteredpixel.shatteredpixeldungeon.actors.mobs.ArmoredStatue;
+import com.shatteredpixel.shatteredpixeldungeon.actors.mobs.npcs.Blacksmith;
 import com.shatteredpixel.shatteredpixeldungeon.effects.CellEmitter;
 import com.shatteredpixel.shatteredpixeldungeon.effects.particles.LeafParticle;
 import com.shatteredpixel.shatteredpixeldungeon.items.Dewdrop;
 import com.shatteredpixel.shatteredpixeldungeon.items.Generator;
 import com.shatteredpixel.shatteredpixeldungeon.items.armor.glyphs.Camouflage;
+import com.shatteredpixel.shatteredpixeldungeon.items.artifacts.DriedRose;
 import com.shatteredpixel.shatteredpixeldungeon.items.artifacts.SandalsOfNature;
 import com.shatteredpixel.shatteredpixeldungeon.items.food.Berry;
+import com.shatteredpixel.shatteredpixeldungeon.items.trinkets.PetrifiedSeed;
 import com.shatteredpixel.shatteredpixeldungeon.levels.Level;
+import com.shatteredpixel.shatteredpixeldungeon.levels.MiningLevel;
 import com.shatteredpixel.shatteredpixeldungeon.levels.Terrain;
 import com.shatteredpixel.shatteredpixeldungeon.scenes.GameScene;
-import com.watabou.noosa.audio.Sample;
 import com.watabou.utils.Random;
 
 public class HighGrass {
@@ -79,56 +81,83 @@ public class HighGrass {
 				if (naturalism != null) {
 					if (!naturalism.isCursed()) {
 						naturalismLevel = naturalism.itemLevel() + 1;
-						naturalism.charge(1);
+						naturalism.charge();
 					} else {
 						naturalismLevel = -1;
 					}
 				}
 
 				//berries try to drop on floors 2/3/4/6/7/8, to a max of 4/6
-				Talent.NatureBerriesAvailable berries = ch.buff(Talent.NatureBerriesAvailable.class);
-				if (berries != null) {
-					int targetFloor = 2 + 2*((Hero)ch).pointsInTalent(Talent.NATURES_BOUNTY);
-					targetFloor -= berries.count();
-					targetFloor += (targetFloor >= 5) ? 3 : 2;
+				if (ch instanceof Hero && ((Hero) ch).hasTalent(Talent.NATURES_BOUNTY)){
+					int berriesAvailable = 2 + 2*((Hero) ch).pointsInTalent(Talent.NATURES_BOUNTY);
 
-					//If we're behind: 1/10, if we're on page: 1/30, if we're ahead: 1/90
-					boolean droppingBerry = false;
-					if (Dungeon.depth > targetFloor)        droppingBerry = Random.Int(10) == 0;
-					else if (Dungeon.depth == targetFloor)  droppingBerry = Random.Int(30) == 0;
-					else if (Dungeon.depth < targetFloor)   droppingBerry = Random.Int(90) == 0;
+					Talent.NatureBerriesDropped dropped = Buff.affect(ch, Talent.NatureBerriesDropped.class);
+					berriesAvailable -= dropped.count();
 
-					if (droppingBerry){
-						berries.countDown(1);
-						level.drop(new Berry(), pos).sprite.drop();
-						if (berries.count() <= 0){
-							berries.detach();
+					if (berriesAvailable > 0) {
+						int targetFloor = 2 + 2 * ((Hero) ch).pointsInTalent(Talent.NATURES_BOUNTY);
+						targetFloor -= berriesAvailable;
+						targetFloor += (targetFloor >= 5) ? 3 : 2;
+
+						//If we're behind: 1/10, if we're on page: 1/30, if we're ahead: 1/90
+						boolean droppingBerry = false;
+						if (Dungeon.depth > targetFloor) droppingBerry = Random.Int(10) == 0;
+						else if (Dungeon.depth == targetFloor) droppingBerry = Random.Int(30) == 0;
+						else if (Dungeon.depth < targetFloor) droppingBerry = Random.Int(90) == 0;
+
+						if (droppingBerry) {
+							dropped.countUp(1);
+							level.drop(new Berry(), pos).sprite.drop();
 						}
 					}
 
 				}
 			}
+
+			//grass gives 1/3 the normal amount of loot in fungi level
+			if (Dungeon.level instanceof MiningLevel
+					&& Blacksmith.Quest.Type() == Blacksmith.Quest.FUNGI
+					&& Random.Int(3) != 0){
+				naturalismLevel = -1;
+			}
 			
 			if (naturalismLevel >= 0) {
-				// Seed, scales from 1/25 to 1/5
-				if (Random.Int(25 - (naturalismLevel * 5)) == 0) {
-					level.drop(Generator.random(Generator.Category.SEED), pos).sprite.drop();
+				// Seed, scales from 1/25 to 1/9
+				float lootChance = 1/(25f - naturalismLevel*4f);
+
+				// absolute max drop rate is ~1/6.5 with footwear of nature, ~1/18 without
+				lootChance *= PetrifiedSeed.grassLootMultiplier();
+
+				if (Random.Float() < lootChance) {
+					if (Random.Float() < PetrifiedSeed.stoneInsteadOfSeedChance()) {
+						level.drop(Generator.randomUsingDefaults(Generator.Category.STONE), pos).sprite.drop();
+					} else {
+						level.drop(Generator.random(Generator.Category.SEED), pos).sprite.drop();
+					}
 				}
 				
-				// Dew, scales from 1/6 to 1/3
-				if (Random.Int(24 - naturalismLevel*3) <= 3) {
+				// Dew, scales from 1/6 to 1/4
+				lootChance = 1/(6f -naturalismLevel/2f);
+				if (Random.Float() < lootChance) {
 					level.drop(new Dewdrop(), pos).sprite.drop();
 				}
 			}
-			
+
+			//Camouflage
 			if (ch instanceof Hero) {
 				Hero hero = (Hero) ch;
-				
-				//Camouflage
-				//FIXME doesn't work with sad ghost
-				if (hero.belongings.armor != null && hero.belongings.armor.hasGlyph(Camouflage.class, hero)) {
-					Buff.prolong(hero, Invisibility.class, 3 + hero.belongings.armor.buffedLvl()/2);
-					Sample.INSTANCE.play( Assets.Sounds.MELD );
+				if (hero.belongings.armor() != null && hero.belongings.armor().hasGlyph(Camouflage.class, hero)) {
+					Camouflage.activate(hero, hero.belongings.armor.buffedLvl());
+				}
+			} else if (ch instanceof DriedRose.GhostHero){
+				DriedRose.GhostHero ghost = (DriedRose.GhostHero) ch;
+				if (ghost.armor() != null && ghost.armor().hasGlyph(Camouflage.class, ghost)){
+					Camouflage.activate(ghost, ghost.armor().buffedLvl());
+				}
+			} else if (ch instanceof ArmoredStatue){
+				ArmoredStatue statue = (ArmoredStatue) ch;
+				if (statue.armor() != null && statue.armor().hasGlyph(Camouflage.class, statue)){
+					Camouflage.activate(statue, statue.armor().buffedLvl());
 				}
 			}
 			

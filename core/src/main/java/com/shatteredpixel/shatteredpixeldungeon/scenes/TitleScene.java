@@ -3,7 +3,7 @@
  * Copyright (C) 2012-2015 Oleg Dolya
  *
  * Shattered Pixel Dungeon
- * Copyright (C) 2014-2021 Evan Debenham
+ * Copyright (C) 2014-2024 Evan Debenham
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -24,6 +24,7 @@ package com.shatteredpixel.shatteredpixeldungeon.scenes;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.shatteredpixel.shatteredpixeldungeon.Assets;
 import com.shatteredpixel.shatteredpixeldungeon.Chrome;
+import com.shatteredpixel.shatteredpixeldungeon.Dungeon;
 import com.shatteredpixel.shatteredpixeldungeon.GamesInProgress;
 import com.shatteredpixel.shatteredpixeldungeon.SPDSettings;
 import com.shatteredpixel.shatteredpixeldungeon.ShatteredPixelDungeon;
@@ -41,6 +42,7 @@ import com.shatteredpixel.shatteredpixeldungeon.services.updates.AvailableUpdate
 import com.shatteredpixel.shatteredpixeldungeon.services.updates.Updates;
 import com.shatteredpixel.shatteredpixeldungeon.sprites.CharSprite;
 import com.shatteredpixel.shatteredpixeldungeon.ui.Archs;
+import com.shatteredpixel.shatteredpixeldungeon.ui.ExitButton;
 import com.shatteredpixel.shatteredpixeldungeon.ui.Icons;
 import com.shatteredpixel.shatteredpixeldungeon.ui.StyledButton;
 import com.shatteredpixel.shatteredpixeldungeon.ui.Window;
@@ -70,7 +72,10 @@ public class TitleScene extends PixelScene {
 		
 		super.create();
 
-		Music.INSTANCE.play( Assets.Music.THEME, true );
+		Music.INSTANCE.playTracks(
+				new String[]{Assets.Music.THEME_1, Assets.Music.THEME_2},
+				new float[]{1, 1},
+				false);
 
 		uiCamera.visible = false;
 		
@@ -218,6 +223,7 @@ public class TitleScene extends PixelScene {
 		};
 		btnRankings.icon(Icons.get(Icons.RANKINGS));
 		add(btnRankings);
+		Dungeon.daily = Dungeon.dailyReplay = false;
 
 		StyledButton btnBadges = new StyledButton(GREY_TR, Messages.get(this, "badges")){
 			@Override
@@ -287,6 +293,12 @@ public class TitleScene extends PixelScene {
 		version.y = h - version.height() - 2;
 		add( version );
 
+		if (DeviceCompat.isDesktop()) {
+			ExitButton btnExit = new ExitButton();
+			btnExit.setPos( w - btnExit.width(), 0 );
+			add( btnExit );
+		}
+
 		fadeIn();
 	}
 	
@@ -349,10 +361,9 @@ public class TitleScene extends PixelScene {
 		public void update() {
 			super.update();
 
-			if (!updateShown && (Updates.updateAvailable() || Updates.isInstallable())){
+			if (!updateShown && Updates.updateAvailable()){
 				updateShown = true;
-				if (Updates.isInstallable())    text(Messages.get(TitleScene.class, "install"));
-				else                            text(Messages.get(TitleScene.class, "update"));
+				text(Messages.get(TitleScene.class, "update"));
 			}
 
 			if (updateShown){
@@ -362,10 +373,7 @@ public class TitleScene extends PixelScene {
 
 		@Override
 		protected void onClick() {
-			if (Updates.isInstallable()){
-				Updates.launchInstall();
-
-			} else if (Updates.updateAvailable()){
+			if (Updates.updateAvailable()){
 				AvailableUpdateData update = Updates.updateData();
 
 				ShatteredPixelDungeon.scene().addToFront( new WndOptions(
@@ -398,7 +406,7 @@ public class TitleScene extends PixelScene {
 
 		public SettingsButton( Chrome.Type type, String label ){
 			super(type, label);
-			if (Messages.lang().status() == Languages.Status.INCOMPLETE){
+			if (Messages.lang().status() == Languages.Status.X_UNFINISH){
 				icon(Icons.get(Icons.LANGS));
 				icon.hardlight(1.5f, 0, 0);
 			} else {
@@ -410,14 +418,14 @@ public class TitleScene extends PixelScene {
 		public void update() {
 			super.update();
 
-			if (Messages.lang().status() == Languages.Status.INCOMPLETE){
+			if (Messages.lang().status() == Languages.Status.X_UNFINISH){
 				textColor(ColorMath.interpolate( 0xFFFFFF, CharSprite.NEGATIVE, 0.5f + (float)Math.sin(Game.timeTotal*5)/2f));
 			}
 		}
 
 		@Override
 		protected void onClick() {
-			if (Messages.lang().status() == Languages.Status.INCOMPLETE){
+			if (Messages.lang().status() == Languages.Status.X_UNFINISH){
 				WndSettings.last_index = 4;
 			}
 			ShatteredPixelDungeon.scene().add(new WndSettings());

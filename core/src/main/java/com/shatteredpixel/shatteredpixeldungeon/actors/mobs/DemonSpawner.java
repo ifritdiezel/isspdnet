@@ -3,7 +3,7 @@
  * Copyright (C) 2012-2015 Oleg Dolya
  *
  * Shattered Pixel Dungeon
- * Copyright (C) 2014-2021 Evan Debenham
+ * Copyright (C) 2014-2024 Evan Debenham
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -24,13 +24,11 @@ package com.shatteredpixel.shatteredpixeldungeon.actors.mobs;
 import com.shatteredpixel.shatteredpixeldungeon.Dungeon;
 import com.shatteredpixel.shatteredpixeldungeon.Statistics;
 import com.shatteredpixel.shatteredpixeldungeon.actors.Actor;
-import com.shatteredpixel.shatteredpixeldungeon.actors.buffs.Amok;
-import com.shatteredpixel.shatteredpixeldungeon.actors.buffs.Paralysis;
-import com.shatteredpixel.shatteredpixeldungeon.actors.buffs.Sleep;
-import com.shatteredpixel.shatteredpixeldungeon.actors.buffs.Terror;
-import com.shatteredpixel.shatteredpixeldungeon.actors.buffs.Vertigo;
+import com.shatteredpixel.shatteredpixeldungeon.actors.Char;
+import com.shatteredpixel.shatteredpixeldungeon.actors.buffs.AscensionChallenge;
 import com.shatteredpixel.shatteredpixeldungeon.effects.Pushing;
 import com.shatteredpixel.shatteredpixeldungeon.items.potions.PotionOfHealing;
+import com.shatteredpixel.shatteredpixeldungeon.journal.Notes;
 import com.shatteredpixel.shatteredpixeldungeon.messages.Messages;
 import com.shatteredpixel.shatteredpixeldungeon.scenes.GameScene;
 import com.shatteredpixel.shatteredpixeldungeon.sprites.SpawnerSprite;
@@ -60,11 +58,12 @@ public class DemonSpawner extends Mob {
 		properties.add(Property.IMMOVABLE);
 		properties.add(Property.MINIBOSS);
 		properties.add(Property.DEMONIC);
+		properties.add(Property.STATIC);
 	}
 
 	@Override
 	public int drRoll() {
-		return Random.NormalIntRange(0, 12);
+		return super.drRoll() + Char.combatRoll(0, 12);
 	}
 
 	@Override
@@ -88,8 +87,22 @@ public class DemonSpawner extends Mob {
 			spawnRecorded = true;
 		}
 
+		if (Dungeon.level.visited[pos]){
+			Notes.add( Notes.Landmark.DEMON_SPAWNER );
+		}
+
+		if (Dungeon.hero.buff(AscensionChallenge.class) != null && spawnCooldown > 20){
+			spawnCooldown = 20;
+		}
+
 		spawnCooldown--;
 		if (spawnCooldown <= 0){
+
+			//we don't want spawners to store multiple ripper demons
+			if (spawnCooldown < -20){
+				spawnCooldown = -20;
+			}
+
 			ArrayList<Integer> candidates = new ArrayList<>();
 			for (int n : PathFinder.NEIGHBOURS8) {
 				if (Dungeon.level.passable[pos+n] && Actor.findChar( pos+n ) == null) {
@@ -103,11 +116,11 @@ public class DemonSpawner extends Mob {
 				spawn.pos = Random.element( candidates );
 				spawn.state = spawn.HUNTING;
 
+				GameScene.add( spawn, 1 );
 				Dungeon.level.occupyCell(spawn);
 
-				GameScene.add( spawn, 1 );
 				if (sprite.visible) {
-					Actor.addDelayed(new Pushing(spawn, pos, spawn.pos), -1);
+					Actor.add(new Pushing(spawn, pos, spawn.pos));
 				}
 
 				spawnCooldown += 60;
@@ -117,6 +130,7 @@ public class DemonSpawner extends Mob {
 				}
 			}
 		}
+		alerted = false;
 		return super.act();
 	}
 
@@ -135,6 +149,7 @@ public class DemonSpawner extends Mob {
 	public void die(Object cause) {
 		if (spawnRecorded){
 			Statistics.spawnersAlive--;
+			Notes.remove(Notes.Landmark.DEMON_SPAWNER);
 		}
 		GLog.h(Messages.get(this, "on_death"));
 		super.die(cause);
@@ -157,11 +172,4 @@ public class DemonSpawner extends Mob {
 		spawnRecorded = bundle.getBoolean(SPAWN_RECORDED);
 	}
 
-	{
-		immunities.add( Paralysis.class );
-		immunities.add( Amok.class );
-		immunities.add( Sleep.class );
-		immunities.add( Terror.class );
-		immunities.add( Vertigo.class );
-	}
 }

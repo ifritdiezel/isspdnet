@@ -3,7 +3,7 @@
  * Copyright (C) 2012-2015 Oleg Dolya
  *
  * Shattered Pixel Dungeon
- * Copyright (C) 2014-2021 Evan Debenham
+ * Copyright (C) 2014-2024 Evan Debenham
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -42,6 +42,7 @@ public class ScrollOfRecharging extends Scroll {
 	@Override
 	public void doRead() {
 
+		detach(curUser.belongings.backpack);
 		Buff.affect(curUser, Recharging.class, Recharging.DURATION);
 		charge(curUser);
 
@@ -56,8 +57,10 @@ public class ScrollOfRecharging extends Scroll {
 	}
 	
 	public static void charge( Char user ) {
-		Emitter e = user.sprite.centerEmitter();
-		if (e != null) e.burst( EnergyParticle.FACTORY, 15 );
+		if (user.sprite != null) {
+			Emitter e = user.sprite.centerEmitter();
+			if (e != null) e.burst(EnergyParticle.FACTORY, 15);
+		}
 	}
 	
 	@Override

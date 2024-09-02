@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-	package="com.shatteredpixel.shatteredpixeldungeon.android"
-	android:installLocation="auto"
+	xmlns:tools="http://schemas.android.com/tools"
+    android:installLocation="auto"
 	android:targetSandboxVersion="2"
 	xmlns:dist="http://schemas.android.com/apk/distribution">
 
@@ -11,6 +11,9 @@
 	<uses-permission android:name="android.permission.VIBRATE" />
 	<uses-permission android:name="android.permission.INTERNET" />
 	<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+	<!-- We perform a runtime check to ensure controllers are disabled on API 14 & 15 -->
+	<uses-sdk tools:overrideLibrary="com.badlogicgames.gdx.controllers" />
 
 	<!-- Note that the game doesn't truly support small screen resolutions,
 		it instead forces downscaling to work on these displays.-->
@@ -27,23 +30,20 @@
 		android:resizeableActivity="true"
 		android:allowBackup="true"
 		android:fullBackupOnly="true"
-		android:backupAgent="com.shatteredpixel.shatteredpixeldungeon.android.AndroidBackupHandler"
-		android:usesCleartextTraffic="true" >
+		android:backupAgent=".AndroidBackupHandler">
 		<activity
-			android:label="${appName}"
-			android:name="com.shatteredpixel.shatteredpixeldungeon.android.AndroidLauncher">
-			<intent-filter >
+			android:name=".AndroidLauncher"
+			android:screenOrientation="nosensor"
+			android:configChanges="keyboard|keyboardHidden|orientation|screenSize|screenLayout|smallestScreenSize"
+			android:exported="true">
+			<intent-filter>
 				<action android:name="android.intent.action.MAIN" />
 				<category android:name="android.intent.category.LAUNCHER" />
 			</intent-filter>
 		</activity>
 		<activity
-			android:label="${appName}"
-			android:name="com.shatteredpixel.shatteredpixeldungeon.android.AndroidGame"
-			android:screenOrientation="nosensor"
-			android:configChanges="keyboard|keyboardHidden|orientation|screenSize|screenLayout|smallestScreenSize">
+			android:name=".AndroidMissingNativesHandler">
 		</activity>
-
 	</application>
 
 </manifest>

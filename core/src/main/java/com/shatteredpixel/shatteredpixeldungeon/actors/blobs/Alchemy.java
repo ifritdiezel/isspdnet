@@ -3,7 +3,7 @@
  * Copyright (C) 2012-2015 Oleg Dolya
  *
  * Shattered Pixel Dungeon
- * Copyright (C) 2014-2021 Evan Debenham
+ * Copyright (C) 2014-2024 Evan Debenham
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -25,9 +25,8 @@ import com.shatteredpixel.shatteredpixeldungeon.Dungeon;
 import com.shatteredpixel.shatteredpixeldungeon.effects.BlobEmitter;
 import com.shatteredpixel.shatteredpixeldungeon.effects.Speck;
 import com.shatteredpixel.shatteredpixeldungeon.journal.Notes;
-import com.shatteredpixel.shatteredpixeldungeon.scenes.AlchemyScene;
 
-public class Alchemy extends Blob implements AlchemyScene.AlchemyProvider {
+public class Alchemy extends Blob {
 
 	protected int pos;
 	
@@ -39,8 +38,9 @@ public class Alchemy extends Blob implements AlchemyScene.AlchemyProvider {
 				cell = j + i* Dungeon.level.width();
 				if (Dungeon.level.insideMap(cell)) {
 					off[cell] = cur[cell];
+
 					volume += off[cell];
-					if (off[cell] > 0 && Dungeon.level.heroFOV[cell]){
+					if (off[cell] > 0 && Dungeon.level.visited[cell]){
 						Notes.add( Notes.Landmark.ALCHEMY );
 					}
 				}
@@ -53,18 +53,5 @@ public class Alchemy extends Blob implements AlchemyScene.AlchemyProvider {
 		super.use( emitter );
 		emitter.start( Speck.factory( Speck.BUBBLE ), 0.33f, 0 );
 	}
-	
-	public static int alchPos;
-	
-	//1 volume is kept in reserve
-	
-	@Override
-	public int getEnergy() {
-		return Math.max(0, cur[alchPos] - 1);
-	}
-	
-	@Override
-	public void spendEnergy(int reduction) {
-		cur[alchPos] = Math.max(1, cur[alchPos] - reduction);
-	}
+
 }

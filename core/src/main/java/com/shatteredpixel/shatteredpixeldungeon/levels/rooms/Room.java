@@ -3,7 +3,7 @@
  * Copyright (C) 2012-2015 Oleg Dolya
  *
  * Shattered Pixel Dungeon
- * Copyright (C) 2014-2021 Evan Debenham
+ * Copyright (C) 2014-2024 Evan Debenham
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -22,6 +22,7 @@
 package com.shatteredpixel.shatteredpixeldungeon.levels.rooms;
 
 import com.shatteredpixel.shatteredpixeldungeon.levels.Level;
+import com.shatteredpixel.shatteredpixeldungeon.levels.painters.Painter;
 import com.watabou.utils.Bundlable;
 import com.watabou.utils.Bundle;
 import com.watabou.utils.Graph;
@@ -238,8 +239,13 @@ public abstract class Room extends Rect implements Graph.Node, Bundlable {
 			return false;
 	}
 
-	public boolean canMerge(Level l, Point p, int mergeTerrain){
+	public boolean canMerge(Level l, Room other, Point p, int mergeTerrain){
 		return false;
+	}
+
+	//can be overriden for special merge logic between rooms
+	public void merge(Level l, Room other, Rect merge, int mergeTerrain){
+		Painter.fill(l, merge, mergeTerrain);
 	}
 	
 	public boolean addNeigbour( Room other ) {
@@ -257,6 +263,11 @@ public abstract class Room extends Rect implements Graph.Node, Bundlable {
 	}
 	
 	public boolean connect( Room room ) {
+		if (isExit() && room.isEntrance() || isEntrance() && room.isExit()){
+			//entrance and exit rooms cannot directly connect
+			return false;
+		}
+
 		if ((neigbours.contains(room) || addNeigbour(room))
 				&& !connected.containsKey( room ) && canConnect(room)) {
 			connected.put( room, null );
@@ -275,6 +286,14 @@ public abstract class Room extends Rect implements Graph.Node, Bundlable {
 			r.connected.remove(this);
 		}
 		connected.clear();
+	}
+
+	public boolean isEntrance(){
+		return false;
+	}
+
+	public boolean isExit(){
+		return false;
 	}
 	
 	// **** Painter Logic ****
@@ -328,8 +347,24 @@ public abstract class Room extends Rect implements Graph.Node, Bundlable {
 		}
 		return points;
 	}
+
+	//whether or not an item can be placed here (usually via randomDropCell)
+	public boolean canPlaceItem(Point p, Level l){
+		return inside(p);
+	}
+
+	public final ArrayList<Point> itemPlaceablePoints(Level l){
+		ArrayList<Point> points = new ArrayList<>();
+		for (int i = left; i <= right; i++) {
+			for (int j = top; j <= bottom; j++) {
+				Point p = new Point(i, j);
+				if (canPlaceItem(p, l)) points.add(p);
+			}
+		}
+		return points;
+	}
 	
-	//whether or not a character (usually spawned) can be placed here
+	//whether or not a character can be placed here (usually via spawn, tele, or wander)
 	public boolean canPlaceCharacter(Point p, Level l){
 		return inside(p);
 	}
@@ -344,6 +379,7 @@ public abstract class Room extends Rect implements Graph.Node, Bundlable {
 		}
 		return points;
 	}
+
 	
 	// **** Graph.Node interface ****
 
@@ -405,7 +441,7 @@ public abstract class Room extends Rect implements Graph.Node, Bundlable {
 	public static class Door extends Point implements Bundlable {
 		
 		public enum Type {
-			EMPTY, TUNNEL, WATER, REGULAR, UNLOCKED, HIDDEN, BARRICADE, LOCKED
+			EMPTY, TUNNEL, WATER, REGULAR, UNLOCKED, HIDDEN, BARRICADE, LOCKED, CRYSTAL, WALL
 		}
 		public Type type = Type.EMPTY;
 		
@@ -419,9 +455,15 @@ public abstract class Room extends Rect implements Graph.Node, Bundlable {
 		public Door( int x, int y ) {
 			super( x, y );
 		}
-		
+
+		private boolean typeLocked = false;
+
+		public void lockTypeChanges( boolean lock ){
+			typeLocked = lock;
+		}
+
 		public void set( Type type ) {
-			if (type.compareTo( this.type ) > 0) {
+			if (!typeLocked && type.compareTo( this.type ) > 0) {
 				this.type = type;
 			}
 		}
@@ -431,6 +473,7 @@ public abstract class Room extends Rect implements Graph.Node, Bundlable {
 			bundle.put("x", x);
 			bundle.put("y", y);
 			bundle.put("type", type);
+			bundle.put("type_locked", typeLocked);
 		}
 		
 		@Override
@@ -438,6 +481,7 @@ public abstract class Room extends Rect implements Graph.Node, Bundlable {
 			x = bundle.getInt("x");
 			y = bundle.getInt("y");
 			type = bundle.getEnum("type", Type.class);
+			typeLocked = bundle.getBoolean("type_locked");
 		}
 	}
 }

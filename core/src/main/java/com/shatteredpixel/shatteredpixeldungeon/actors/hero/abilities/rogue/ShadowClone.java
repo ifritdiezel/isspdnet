@@ -3,7 +3,7 @@
  * Copyright (C) 2012-2015 Oleg Dolya
  *
  * Shattered Pixel Dungeon
- * Copyright (C) 2014-2021 Evan Debenham
+ * Copyright (C) 2014-2024 Evan Debenham
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -25,24 +25,30 @@ import com.shatteredpixel.shatteredpixeldungeon.Assets;
 import com.shatteredpixel.shatteredpixeldungeon.Dungeon;
 import com.shatteredpixel.shatteredpixeldungeon.actors.Actor;
 import com.shatteredpixel.shatteredpixeldungeon.actors.Char;
+import com.shatteredpixel.shatteredpixeldungeon.actors.buffs.AllyBuff;
+import com.shatteredpixel.shatteredpixeldungeon.actors.buffs.Burning;
 import com.shatteredpixel.shatteredpixeldungeon.actors.buffs.Invisibility;
 import com.shatteredpixel.shatteredpixeldungeon.actors.hero.Hero;
 import com.shatteredpixel.shatteredpixeldungeon.actors.hero.Talent;
 import com.shatteredpixel.shatteredpixeldungeon.actors.hero.abilities.ArmorAbility;
+import com.shatteredpixel.shatteredpixeldungeon.actors.hero.abilities.huntress.SpiritHawk;
 import com.shatteredpixel.shatteredpixeldungeon.actors.mobs.npcs.DirectableAlly;
 import com.shatteredpixel.shatteredpixeldungeon.effects.particles.SmokeParticle;
 import com.shatteredpixel.shatteredpixeldungeon.items.armor.ClassArmor;
+import com.shatteredpixel.shatteredpixeldungeon.items.armor.glyphs.AntiMagic;
+import com.shatteredpixel.shatteredpixeldungeon.items.armor.glyphs.Brimstone;
 import com.shatteredpixel.shatteredpixeldungeon.levels.CityLevel;
 import com.shatteredpixel.shatteredpixeldungeon.messages.Messages;
 import com.shatteredpixel.shatteredpixeldungeon.scenes.GameScene;
 import com.shatteredpixel.shatteredpixeldungeon.sprites.HeroSprite;
 import com.shatteredpixel.shatteredpixeldungeon.sprites.MobSprite;
-import com.shatteredpixel.shatteredpixeldungeon.utils.BArray;
+import com.shatteredpixel.shatteredpixeldungeon.ui.HeroIcon;
 import com.shatteredpixel.shatteredpixeldungeon.utils.GLog;
 import com.watabou.noosa.TextureFilm;
 import com.watabou.noosa.audio.Sample;
 import com.watabou.noosa.particles.Emitter;
 import com.watabou.noosa.tweeners.Tweener;
+import com.watabou.utils.BArray;
 import com.watabou.utils.Bundle;
 import com.watabou.utils.PathFinder;
 import com.watabou.utils.Random;
@@ -66,7 +72,7 @@ public class ShadowClone extends ArmorAbility {
 	}
 
 	{
-		baseChargeUse = 50f;
+		baseChargeUse = 35f;
 	}
 
 	@Override
@@ -111,10 +117,15 @@ public class ShadowClone extends ArmorAbility {
 				hero.spendAndNext(Actor.TICK);
 
 			} else {
-				GLog.w(Messages.get(this, "no_space"));
+				GLog.w(Messages.get(SpiritHawk.class, "no_space"));
 			}
 		}
 
+	}
+
+	@Override
+	public int icon() {
+		return HeroIcon.SHADOW_CLONE;
 	}
 
 	@Override
@@ -136,7 +147,11 @@ public class ShadowClone extends ArmorAbility {
 		{
 			spriteClass = ShadowSprite.class;
 
-			HP = HT = 100;
+			HP = HT = 80;
+
+			immunities.add(AllyBuff.class);
+
+			properties.add(Property.INORGANIC);
 		}
 
 		public ShadowAlly(){
@@ -145,7 +160,7 @@ public class ShadowClone extends ArmorAbility {
 
 		public ShadowAlly( int heroLevel ){
 			super();
-			int hpBonus = 20 + 5*heroLevel;
+			int hpBonus = 15 + 5*heroLevel;
 			hpBonus = Math.round(0.1f * Dungeon.hero.pointsInTalent(Talent.PERFECT_COPY) * hpBonus);
 			if (hpBonus > 0){
 				HT += hpBonus;
@@ -163,6 +178,12 @@ public class ShadowClone extends ArmorAbility {
 				sprite.idle();
 			}
 			return result;
+		}
+
+		@Override
+		public void defendPos(int cell) {
+			GLog.i(Messages.get(this, "direct_defend"));
+			super.defendPos(cell);
 		}
 
 		@Override
@@ -184,10 +205,10 @@ public class ShadowClone extends ArmorAbility {
 
 		@Override
 		public int damageRoll() {
-			int damage = Random.NormalIntRange(10, 20);
+			int damage = Char.combatRoll(10, 20);
 			int heroDamage = Dungeon.hero.damageRoll();
 			heroDamage /= Dungeon.hero.attackDelay(); //normalize hero damage based on atk speed
-			heroDamage = Math.round(0.0625f * Dungeon.hero.pointsInTalent(Talent.SHADOW_BLADE) * heroDamage);
+			heroDamage = Math.round(0.08f * Dungeon.hero.pointsInTalent(Talent.SHADOW_BLADE) * heroDamage);
 			if (heroDamage > 0){
 				damage += heroDamage;
 			}
@@ -198,8 +219,8 @@ public class ShadowClone extends ArmorAbility {
 		public int attackProc( Char enemy, int damage ) {
 			damage = super.attackProc( enemy, damage );
 			if (Random.Int(4) < Dungeon.hero.pointsInTalent(Talent.SHADOW_BLADE)
-					&& Dungeon.hero.belongings.weapon != null){
-				return Dungeon.hero.belongings.weapon.proc( this, enemy, damage );
+					&& Dungeon.hero.belongings.weapon() != null){
+				return Dungeon.hero.belongings.weapon().proc( this, enemy, damage );
 			} else {
 				return damage;
 			}
@@ -209,7 +230,7 @@ public class ShadowClone extends ArmorAbility {
 		public int drRoll() {
 			int dr = super.drRoll();
 			int heroRoll = Dungeon.hero.drRoll();
-			heroRoll = Math.round(0.125f * Dungeon.hero.pointsInTalent(Talent.CLONED_ARMOR) * heroRoll);
+			heroRoll = Math.round(0.12f * Dungeon.hero.pointsInTalent(Talent.CLONED_ARMOR) * heroRoll);
 			if (heroRoll > 0){
 				dr += heroRoll;
 			}
@@ -217,14 +238,54 @@ public class ShadowClone extends ArmorAbility {
 		}
 
 		@Override
+		public boolean isImmune(Class effect) {
+			if (effect == Burning.class
+					&& Random.Int(4) < Dungeon.hero.pointsInTalent(Talent.CLONED_ARMOR)
+					&& Dungeon.hero.belongings.armor() != null
+					&& Dungeon.hero.belongings.armor().hasGlyph(Brimstone.class, this)){
+				return true;
+			}
+			return super.isImmune(effect);
+		}
+
+		@Override
 		public int defenseProc(Char enemy, int damage) {
 			damage = super.defenseProc(enemy, damage);
 			if (Random.Int(4) < Dungeon.hero.pointsInTalent(Talent.CLONED_ARMOR)
-					&& Dungeon.hero.belongings.armor != null){
-				return Dungeon.hero.belongings.armor.proc( enemy, this, damage );
+					&& Dungeon.hero.belongings.armor() != null){
+				return Dungeon.hero.belongings.armor().proc( enemy, this, damage );
 			} else {
 				return damage;
 			}
+		}
+
+		@Override
+		public void damage(int dmg, Object src) {
+
+			//TODO improve this when I have proper damage source logic
+			if (Random.Int(4) < Dungeon.hero.pointsInTalent(Talent.CLONED_ARMOR)
+					&& Dungeon.hero.belongings.armor() != null
+					&& Dungeon.hero.belongings.armor().hasGlyph(AntiMagic.class, this)
+					&& AntiMagic.RESISTS.contains(src.getClass())){
+				dmg -= AntiMagic.drRoll(Dungeon.hero, Dungeon.hero.belongings.armor().buffedLvl());
+				dmg = Math.max(dmg, 0);
+			}
+
+			super.damage(dmg, src);
+		}
+
+		@Override
+		public float speed() {
+			float speed = super.speed();
+
+			//moves 2 tiles at a time when returning to the hero
+			if (state == WANDERING
+					&& defendingPos == -1
+					&& Dungeon.level.distance(pos, Dungeon.hero.pos) > 1){
+				speed *= 2;
+			}
+
+			return speed;
 		}
 
 		@Override

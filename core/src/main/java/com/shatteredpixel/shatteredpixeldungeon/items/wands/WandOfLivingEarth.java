@@ -3,7 +3,7 @@
  * Copyright (C) 2012-2015 Oleg Dolya
  *
  * Shattered Pixel Dungeon
- * Copyright (C) 2014-2021 Evan Debenham
+ * Copyright (C) 2014-2024 Evan Debenham
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -26,20 +26,24 @@ import com.shatteredpixel.shatteredpixeldungeon.Challenges;
 import com.shatteredpixel.shatteredpixeldungeon.Dungeon;
 import com.shatteredpixel.shatteredpixeldungeon.actors.Actor;
 import com.shatteredpixel.shatteredpixeldungeon.actors.Char;
+import com.shatteredpixel.shatteredpixeldungeon.actors.buffs.AllyBuff;
 import com.shatteredpixel.shatteredpixeldungeon.actors.buffs.Amok;
 import com.shatteredpixel.shatteredpixeldungeon.actors.buffs.Buff;
-import com.shatteredpixel.shatteredpixeldungeon.actors.buffs.Corruption;
 import com.shatteredpixel.shatteredpixeldungeon.actors.hero.Hero;
+import com.shatteredpixel.shatteredpixeldungeon.actors.mobs.Mimic;
 import com.shatteredpixel.shatteredpixeldungeon.actors.mobs.Mob;
 import com.shatteredpixel.shatteredpixeldungeon.actors.mobs.npcs.NPC;
+import com.shatteredpixel.shatteredpixeldungeon.effects.FloatingText;
 import com.shatteredpixel.shatteredpixeldungeon.effects.MagicMissile;
 import com.shatteredpixel.shatteredpixeldungeon.items.weapon.melee.MagesStaff;
 import com.shatteredpixel.shatteredpixeldungeon.mechanics.Ballistica;
 import com.shatteredpixel.shatteredpixeldungeon.messages.Messages;
 import com.shatteredpixel.shatteredpixeldungeon.scenes.GameScene;
+import com.shatteredpixel.shatteredpixeldungeon.sprites.CharSprite;
 import com.shatteredpixel.shatteredpixeldungeon.sprites.EarthGuardianSprite;
 import com.shatteredpixel.shatteredpixeldungeon.sprites.ItemSpriteSheet;
 import com.shatteredpixel.shatteredpixeldungeon.ui.BuffIndicator;
+import com.watabou.noosa.Image;
 import com.watabou.noosa.audio.Sample;
 import com.watabou.utils.Bundle;
 import com.watabou.utils.Callback;
@@ -78,7 +82,10 @@ public class WandOfLivingEarth extends DamageWand {
 		}
 
 		RockArmor buff = curUser.buff(RockArmor.class);
-		if (ch == null){
+		//only grant armor if we are shooting at an enemy, a hiding mimic, or the guardian
+		if ((guardian == null || ch != guardian) && (ch == null
+				|| ch.alignment == Char.Alignment.ALLY
+				|| ch.alignment == Char.Alignment.NEUTRAL && !(ch instanceof Mimic))){
 			armorToAdd = 0;
 		} else {
 			if (buff == null && guardian == null) {
@@ -124,7 +131,9 @@ public class WandOfLivingEarth extends DamageWand {
 				}
 
 				if (closest == -1){
-					curUser.sprite.centerEmitter().burst(MagicMissile.EarthParticle.ATTRACT, 8 + buffedLvl()/2);
+					if (armorToAdd > 0) {
+						curUser.sprite.centerEmitter().burst(MagicMissile.EarthParticle.ATTRACT, 8 + buffedLvl() / 2);
+					}
 					return; //do not spawn guardian or detach buff
 				} else {
 					guardian.pos = closest;
@@ -158,7 +167,9 @@ public class WandOfLivingEarth extends DamageWand {
 				Sample.INSTANCE.play( Assets.Sounds.HIT_MAGIC, 1, 0.8f * Random.Float(0.87f, 1.15f) );
 				
 				if (guardian == null) {
-					curUser.sprite.centerEmitter().burst(MagicMissile.EarthParticle.ATTRACT, 8 + buffedLvl() / 2);
+					if (armorToAdd > 0) {
+						curUser.sprite.centerEmitter().burst(MagicMissile.EarthParticle.ATTRACT, 8 + buffedLvl() / 2);
+					}
 				} else {
 					guardian.sprite.centerEmitter().burst(MagicMissile.EarthParticle.ATTRACT, 8 + buffedLvl() / 2);
 					guardian.setInfo(curUser, buffedLvl(), armorToAdd);
@@ -194,7 +205,7 @@ public class WandOfLivingEarth extends DamageWand {
 			}
 		}
 		
-		int armor = Math.round(damage*0.33f);
+		int armor = Math.round(damage*0.33f*procChanceMultiplier(attacker));
 
 		if (guardian != null){
 			guardian.sprite.centerEmitter().burst(MagicMissile.EarthParticle.ATTRACT, 8 + buffedLvl() / 2);
@@ -222,6 +233,10 @@ public class WandOfLivingEarth extends DamageWand {
 	}
 
 	public static class RockArmor extends Buff {
+
+		{
+			type = buffType.POSITIVE;
+		}
 
 		private int wandLevel;
 		private int armor;
@@ -253,13 +268,18 @@ public class WandOfLivingEarth extends DamageWand {
 		}
 
 		@Override
+		public void tintIcon(Image icon) {
+			icon.brightness(0.6f);
+		}
+
+		@Override
 		public float iconFadePercent() {
 			return Math.max(0, (armorToGuardian() - armor) / (float)armorToGuardian());
 		}
 
 		@Override
-		public String toString() {
-			return Messages.get(this, "name");
+		public String iconTextDisplay() {
+			return Integer.toString(armor);
 		}
 
 		@Override
@@ -293,6 +313,9 @@ public class WandOfLivingEarth extends DamageWand {
 			alignment = Alignment.ALLY;
 			state = HUNTING;
 			intelligentAlly = true;
+
+			properties.add(Property.INORGANIC);
+
 			WANDERING = new Wandering();
 
 			//before other mobs
@@ -307,6 +330,9 @@ public class WandOfLivingEarth extends DamageWand {
 			if (wandLevel > this.wandLevel) {
 				this.wandLevel = wandLevel;
 				HT = 16 + 8 * wandLevel;
+			}
+			if (HP != 0){
+				sprite.showStatusWithIcon(CharSprite.POSITIVE, Integer.toString(healthToAdd), FloatingText.HEALING);
 			}
 			HP = Math.min(HT, HP + healthToAdd);
 			//half of hero's evasion
@@ -327,15 +353,16 @@ public class WandOfLivingEarth extends DamageWand {
 
 		@Override
 		public int damageRoll() {
-			return Random.NormalIntRange(2, 4 + Dungeon.depth/2);
+			return Char.combatRoll(2, 4 + Dungeon.scalingDepth()/2);
 		}
 
 		@Override
 		public int drRoll() {
+			int dr = super.drRoll();
 			if (Dungeon.isChallenged(Challenges.NO_ARMOR)){
-				return Random.NormalIntRange(wandLevel, 2 + wandLevel);
+				return dr + Char.combatRoll(wandLevel, 2 + wandLevel);
 			} else {
-				return Random.NormalIntRange(wandLevel, 3 + 3 * wandLevel);
+				return dr + Char.combatRoll(wandLevel, 3 + 3 * wandLevel);
 			}
 		}
 
@@ -350,7 +377,7 @@ public class WandOfLivingEarth extends DamageWand {
 		}
 		
 		{
-			immunities.add( Corruption.class );
+			immunities.add( AllyBuff.class );
 		}
 
 		private static final String DEFENSE = "defense";

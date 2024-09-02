@@ -3,7 +3,7 @@
  * Copyright (C) 2012-2015 Oleg Dolya
  *
  * Shattered Pixel Dungeon
- * Copyright (C) 2014-2021 Evan Debenham
+ * Copyright (C) 2014-2024 Evan Debenham
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -24,20 +24,15 @@ package com.shatteredpixel.shatteredpixeldungeon.actors.mobs;
 import com.shatteredpixel.shatteredpixeldungeon.Assets;
 import com.shatteredpixel.shatteredpixeldungeon.Challenges;
 import com.shatteredpixel.shatteredpixeldungeon.Dungeon;
+import com.shatteredpixel.shatteredpixeldungeon.Statistics;
 import com.shatteredpixel.shatteredpixeldungeon.actors.Actor;
 import com.shatteredpixel.shatteredpixeldungeon.actors.Char;
 import com.shatteredpixel.shatteredpixeldungeon.actors.blobs.Electricity;
-import com.shatteredpixel.shatteredpixeldungeon.actors.blobs.ToxicGas;
-import com.shatteredpixel.shatteredpixeldungeon.actors.buffs.Amok;
 import com.shatteredpixel.shatteredpixeldungeon.actors.buffs.Buff;
-import com.shatteredpixel.shatteredpixeldungeon.actors.buffs.Paralysis;
-import com.shatteredpixel.shatteredpixeldungeon.actors.buffs.Sleep;
-import com.shatteredpixel.shatteredpixeldungeon.actors.buffs.Terror;
-import com.shatteredpixel.shatteredpixeldungeon.actors.buffs.Vertigo;
+import com.shatteredpixel.shatteredpixeldungeon.actors.buffs.LockedFloor;
 import com.shatteredpixel.shatteredpixeldungeon.effects.CellEmitter;
 import com.shatteredpixel.shatteredpixeldungeon.effects.Lightning;
 import com.shatteredpixel.shatteredpixeldungeon.effects.particles.SparkParticle;
-import com.shatteredpixel.shatteredpixeldungeon.items.Heap;
 import com.shatteredpixel.shatteredpixeldungeon.levels.CavesBossLevel;
 import com.shatteredpixel.shatteredpixeldungeon.messages.Messages;
 import com.shatteredpixel.shatteredpixeldungeon.sprites.CharSprite;
@@ -61,9 +56,11 @@ public class Pylon extends Mob {
 		maxLvl = -2;
 
 		properties.add(Property.MINIBOSS);
+		properties.add(Property.BOSS_MINION);
 		properties.add(Property.INORGANIC);
 		properties.add(Property.ELECTRIC);
 		properties.add(Property.IMMOVABLE);
+		properties.add(Property.STATIC);
 
 		state = PASSIVE;
 		alignment = Alignment.NEUTRAL;
@@ -73,18 +70,25 @@ public class Pylon extends Mob {
 
 	@Override
 	protected boolean act() {
-		spend(TICK);
-
-		Heap heap = Dungeon.level.heaps.get( pos );
-		if (heap != null) {
-			int n;
-			do {
-				n = pos + PathFinder.NEIGHBOURS8[Random.Int( 8 )];
-			} while (!Dungeon.level.passable[n] && !Dungeon.level.avoid[n]);
-			Dungeon.level.drop( heap.pickUp(), n ).sprite.drop( pos );
+		//char logic
+		if (fieldOfView == null || fieldOfView.length != Dungeon.level.length()){
+			fieldOfView = new boolean[Dungeon.level.length()];
 		}
+		Dungeon.level.updateFieldOfView( this, fieldOfView );
+
+		throwItems();
+
+		sprite.hideAlert();
+		sprite.hideLost();
+
+		//mob logic
+		enemy = chooseEnemy();
+
+		enemySeen = enemy != null && enemy.isAlive() && fieldOfView[enemy.pos] && enemy.invisible <= 0;
+		//end of char/mob logic
 
 		if (alignment == Alignment.NEUTRAL){
+			spend(TICK);
 			return true;
 		}
 
@@ -123,23 +127,30 @@ public class Pylon extends Mob {
 
 		targetNeighbor = (targetNeighbor+1)%8;
 
+		spend(TICK);
+
 		return true;
 	}
 
 	private void shockChar( Char ch ){
 		if (ch != null && !(ch instanceof DM300)){
 			ch.sprite.flash();
-			ch.damage(Random.NormalIntRange(10, 20), new Electricity());
+			ch.damage(Char.combatRoll(10, 20), new Electricity());
 
-			if (ch == Dungeon.hero && !ch.isAlive()){
-				Dungeon.fail(DM300.class);
-				GLog.n( Messages.get(Electricity.class, "ondeath") );
+			if (ch == Dungeon.hero) {
+				Statistics.qualifiedForBossChallengeBadge = false;
+				Statistics.bossScores[2] -= 100;
+				if (!ch.isAlive()) {
+					Dungeon.fail(DM300.class);
+					GLog.n(Messages.get(Electricity.class, "ondeath"));
+				}
 			}
 		}
 	}
 
 	public void activate(){
 		alignment = Alignment.ENEMY;
+		state = HUNTING; //so allies know to attack it
 		((PylonSprite) sprite).activate();
 	}
 
@@ -151,7 +162,7 @@ public class Pylon extends Mob {
 	}
 
 	@Override
-	public void notice() {
+	public void beckon(int cell) {
 		//do nothing
 	}
 
@@ -170,17 +181,18 @@ public class Pylon extends Mob {
 	}
 
 	@Override
-	public void add(Buff buff) {
+	public boolean add(Buff buff) {
 		//immune to all buffs/debuffs when inactive
 		if (alignment != Alignment.NEUTRAL) {
-			super.add(buff);
+			return super.add(buff);
 		}
+		return false;
 	}
 
 	@Override
 	public boolean isInvulnerable(Class effect) {
 		//immune to damage when inactive
-		return (alignment == Alignment.NEUTRAL);
+		return alignment == Alignment.NEUTRAL || super.isInvulnerable(effect);
 	}
 
 	@Override
@@ -188,6 +200,12 @@ public class Pylon extends Mob {
 		if (dmg >= 15){
 			//takes 15/16/17/18/19/20 dmg at 15/17/20/24/29/36 incoming dmg
 			dmg = 14 + (int)(Math.sqrt(8*(dmg - 14) + 1) - 1)/2;
+		}
+
+		LockedFloor lock = Dungeon.hero.buff(LockedFloor.class);
+		if (lock != null && !isImmune(src.getClass()) && !isInvulnerable(src.getClass())){
+			if (Dungeon.isChallenged(Challenges.STRONGER_BOSSES))   lock.addTime(dmg/2f);
+			else                                                    lock.addTime(dmg);
 		}
 		super.damage(dmg, src);
 	}
@@ -213,15 +231,6 @@ public class Pylon extends Mob {
 		super.restoreFromBundle(bundle);
 		alignment = bundle.getEnum(ALIGNMENT, Alignment.class);
 		targetNeighbor = bundle.getInt(TARGET_NEIGHBOUR);
-	}
-
-	{
-		immunities.add( Paralysis.class );
-		immunities.add( Amok.class );
-		immunities.add( Sleep.class );
-		immunities.add( ToxicGas.class );
-		immunities.add( Terror.class );
-		immunities.add( Vertigo.class );
 	}
 
 }

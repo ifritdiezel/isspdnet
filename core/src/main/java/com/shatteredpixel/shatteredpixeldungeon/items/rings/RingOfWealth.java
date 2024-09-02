@@ -3,7 +3,7 @@
  * Copyright (C) 2012-2015 Oleg Dolya
  *
  * Shattered Pixel Dungeon
- * Copyright (C) 2014-2021 Evan Debenham
+ * Copyright (C) 2014-2024 Evan Debenham
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -31,13 +31,16 @@ import com.shatteredpixel.shatteredpixeldungeon.items.Honeypot;
 import com.shatteredpixel.shatteredpixeldungeon.items.Item;
 import com.shatteredpixel.shatteredpixeldungeon.items.armor.Armor;
 import com.shatteredpixel.shatteredpixeldungeon.items.bombs.Bomb;
-import com.shatteredpixel.shatteredpixeldungeon.items.potions.AlchemicalCatalyst;
 import com.shatteredpixel.shatteredpixeldungeon.items.potions.PotionOfExperience;
+import com.shatteredpixel.shatteredpixeldungeon.items.potions.brews.UnstableBrew;
 import com.shatteredpixel.shatteredpixeldungeon.items.potions.exotic.ExoticPotion;
+import com.shatteredpixel.shatteredpixeldungeon.items.potions.exotic.PotionOfDivineInspiration;
 import com.shatteredpixel.shatteredpixeldungeon.items.scrolls.ScrollOfTransmutation;
 import com.shatteredpixel.shatteredpixeldungeon.items.scrolls.exotic.ExoticScroll;
-import com.shatteredpixel.shatteredpixeldungeon.items.spells.ArcaneCatalyst;
+import com.shatteredpixel.shatteredpixeldungeon.items.scrolls.exotic.ScrollOfMetamorphosis;
+import com.shatteredpixel.shatteredpixeldungeon.items.spells.UnstableSpell;
 import com.shatteredpixel.shatteredpixeldungeon.items.stones.StoneOfEnchantment;
+import com.shatteredpixel.shatteredpixeldungeon.items.trinkets.ExoticCrystals;
 import com.shatteredpixel.shatteredpixeldungeon.items.weapon.Weapon;
 import com.shatteredpixel.shatteredpixeldungeon.messages.Messages;
 import com.shatteredpixel.shatteredpixeldungeon.sprites.ItemSpriteSheet;
@@ -46,7 +49,6 @@ import com.watabou.utils.Bundle;
 import com.watabou.utils.Random;
 import com.watabou.utils.Reflection;
 
-import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.HashSet;
 
@@ -61,9 +63,15 @@ public class RingOfWealth extends Ring {
 	
 	public String statsInfo() {
 		if (isIdentified()){
-			return Messages.get(this, "stats", new DecimalFormat("#.##").format(100f * (Math.pow(1.20f, soloBuffedBonus()) - 1f)));
+			String info = Messages.get(this, "stats",
+					Messages.decimalFormat("#.##", 100f * (Math.pow(1.20f, soloBuffedBonus()) - 1f)));
+			if (isEquipped(Dungeon.hero) && soloBuffedBonus() != combinedBuffedBonus(Dungeon.hero)){
+				info += "\n\n" + Messages.get(this, "combined_stats",
+						Messages.decimalFormat("#.##", 100f * (Math.pow(1.20f, combinedBuffedBonus(Dungeon.hero)) - 1f)));
+			}
+			return info;
 		} else {
-			return Messages.get(this, "typical_stats", new DecimalFormat("#.##").format(20f));
+			return Messages.get(this, "typical_stats", Messages.decimalFormat("#.##", 20f));
 		}
 	}
 
@@ -112,8 +120,8 @@ public class RingOfWealth extends Ring {
 
 		//reset (if needed), decrement, and store counts
 		if (triesToDrop == Float.MIN_VALUE) {
-			triesToDrop = Random.NormalIntRange(0, 25);
-			dropsToEquip = Random.NormalIntRange(4, 8);
+			triesToDrop = Random.NormalIntRange(0, 20);
+			dropsToEquip = Random.NormalIntRange(5, 10);
 		}
 
 		//now handle reward logic
@@ -122,12 +130,25 @@ public class RingOfWealth extends Ring {
 		triesToDrop -= tries;
 		while ( triesToDrop <= 0 ){
 			if (dropsToEquip <= 0){
+				int equipBonus = 0;
+
+				//A second ring of wealth can be at most +1 when calculating wealth bonus for equips
+				//This is to prevent using an upgraded wealth to farm another upgraded wealth and
+				//using the two to get substantially more upgrade value than intended
+				for (Wealth w : target.buffs(Wealth.class)){
+					if (w.buffedLvl() > equipBonus){
+						equipBonus = w.buffedLvl() + Math.min(equipBonus, 2);
+					} else {
+						equipBonus += Math.min(w.buffedLvl(), 2);
+					}
+				}
+
 				Item i;
 				do {
-					i = genEquipmentDrop(bonus - 1);
+					i = genEquipmentDrop(equipBonus - 1);
 				} while (Challenges.isItemBlocked(i));
 				drops.add(i);
-				dropsToEquip = Random.NormalIntRange(4, 8);
+				dropsToEquip = Random.NormalIntRange(5, 10);
 			} else {
 				Item i;
 				do {
@@ -136,7 +157,7 @@ public class RingOfWealth extends Ring {
 				drops.add(i);
 				dropsToEquip--;
 			}
-			triesToDrop += Random.NormalIntRange(0, 25);
+			triesToDrop += Random.NormalIntRange(0, 20);
 		}
 
 		//store values back into rings
@@ -197,11 +218,11 @@ public class RingOfWealth extends Ring {
 				Item i = new Gold().random();
 				return i.quantity(i.quantity()/2);
 			case 1:
-				return Generator.random(Generator.Category.STONE);
+				return Generator.randomUsingDefaults(Generator.Category.STONE);
 			case 2:
-				return Generator.random(Generator.Category.POTION);
+				return Generator.randomUsingDefaults(Generator.Category.POTION);
 			case 3:
-				return Generator.random(Generator.Category.SCROLL);
+				return Generator.randomUsingDefaults(Generator.Category.SCROLL);
 		}
 	}
 
@@ -212,12 +233,20 @@ public class RingOfWealth extends Ring {
 				return i.quantity(i.quantity()*2);
 			case 1:
 				i = Generator.randomUsingDefaults(Generator.Category.POTION);
-				return Reflection.newInstance(ExoticPotion.regToExo.get(i.getClass()));
+				if (!(i instanceof ExoticPotion)) {
+					return Reflection.newInstance(ExoticPotion.regToExo.get(i.getClass()));
+				} else {
+					return Reflection.newInstance(i.getClass());
+				}
 			case 2:
 				i = Generator.randomUsingDefaults(Generator.Category.SCROLL);
-				return Reflection.newInstance(ExoticScroll.regToExo.get(i.getClass()));
+				if (!(i instanceof ExoticScroll)){
+					return Reflection.newInstance(ExoticScroll.regToExo.get(i.getClass()));
+				} else {
+					return Reflection.newInstance(i.getClass());
+				}
 			case 3:
-				return Random.Int(2) == 0 ? new ArcaneCatalyst() : new AlchemicalCatalyst();
+				return Random.Int(2) == 0 ? new UnstableBrew() : new UnstableSpell();
 			case 4:
 				return new Bomb();
 			case 5:
@@ -237,9 +266,9 @@ public class RingOfWealth extends Ring {
 			case 1:
 				return new StoneOfEnchantment();
 			case 2:
-				return new PotionOfExperience();
+				return Random.Float() < ExoticCrystals.consumableExoticChance() ? new PotionOfDivineInspiration() : new PotionOfExperience();
 			case 3:
-				return new ScrollOfTransmutation();
+				return Random.Float() < ExoticCrystals.consumableExoticChance() ? new ScrollOfMetamorphosis() : new ScrollOfTransmutation();
 		}
 	}
 
@@ -249,7 +278,7 @@ public class RingOfWealth extends Ring {
 		int floorset = (Dungeon.depth + level)/5;
 		switch (Random.Int(5)){
 			default: case 0: case 1:
-				Weapon w = Generator.randomWeapon(floorset);
+				Weapon w = Generator.randomWeapon(floorset, true);
 				if (!w.hasGoodEnchant() && Random.Int(10) < level)      w.enchant();
 				else if (w.hasCurseEnchant())                           w.enchant(null);
 				result = w;
@@ -261,15 +290,15 @@ public class RingOfWealth extends Ring {
 				result = a;
 				break;
 			case 3:
-				result = Generator.random(Generator.Category.RING);
+				result = Generator.randomUsingDefaults(Generator.Category.RING);
 				break;
 			case 4:
 				result = Generator.random(Generator.Category.ARTIFACT);
 				break;
 		}
-		//minimum level is 1/2/3/4/5/6 when ring level is 1/3/6/10/15/21
+		//minimum level is 1/2/3/4/5/6 when ring level is 1/3/5/7/9/11
 		if (result.isUpgradable()){
-			int minLevel = (int)Math.floor((Math.sqrt(8*level + 1)-1)/2f);
+			int minLevel = (level+1)/2;
 			if (result.level() < minLevel){
 				result.level(minLevel);
 			}

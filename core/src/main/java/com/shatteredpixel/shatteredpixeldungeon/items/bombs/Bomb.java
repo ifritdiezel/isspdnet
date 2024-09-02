@@ -3,7 +3,7 @@
  * Copyright (C) 2012-2015 Oleg Dolya
  *
  * Shattered Pixel Dungeon
- * Copyright (C) 2014-2021 Evan Debenham
+ * Copyright (C) 2014-2024 Evan Debenham
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -22,6 +22,7 @@
 package com.shatteredpixel.shatteredpixeldungeon.items.bombs;
 
 import com.shatteredpixel.shatteredpixeldungeon.Assets;
+import com.shatteredpixel.shatteredpixeldungeon.Badges;
 import com.shatteredpixel.shatteredpixeldungeon.Dungeon;
 import com.shatteredpixel.shatteredpixeldungeon.SPDSettings;
 import com.shatteredpixel.shatteredpixeldungeon.actors.Actor;
@@ -106,10 +107,14 @@ public class Bomb extends Item {
 		super.execute(hero, action);
 	}
 
+	protected Fuse createFuse(){
+		return new Fuse();
+	}
+
 	@Override
 	protected void onThrow( int cell ) {
 		if (!Dungeon.level.pit[ cell ] && lightingFuse) {
-			Actor.addDelayed(fuse = new Fuse().ignite(this), 2);
+			Actor.addDelayed(fuse = createFuse().ignite(this), 2);
 		}
 		if (Actor.findChar( cell ) != null && !(Actor.findChar( cell ) instanceof Hero) ){
 			ArrayList<Integer> candidates = new ArrayList<>();
@@ -123,12 +128,12 @@ public class Bomb extends Item {
 	}
 
 	@Override
-	public boolean doPickUp(Hero hero) {
+	public boolean doPickUp(Hero hero, int pos) {
 		if (fuse != null) {
 			GLog.w( Messages.get(this, "snuff_fuse") );
 			fuse = null;
 		}
-		return super.doPickUp(hero);
+		return super.doPickUp(hero, pos);
 	}
 
 	public void explode(int cell){
@@ -178,7 +183,7 @@ public class Bomb extends Item {
 					continue;
 				}
 
-				int dmg = Random.NormalIntRange(5 + Dungeon.depth, 10 + Dungeon.depth*2);
+				int dmg = Char.combatRoll(5 + Dungeon.scalingDepth(), 10 + Dungeon.scalingDepth()*2);
 
 				//those not at the center of the blast take less damage
 				if (ch.pos != cell){
@@ -192,7 +197,11 @@ public class Bomb extends Item {
 				}
 				
 				if (ch == Dungeon.hero && !ch.isAlive()) {
-					Dungeon.fail(Bomb.class);
+					if (this instanceof ConjuredBomb){
+						Badges.validateDeathFromFriendlyMagic();
+					}
+					GLog.n(Messages.get(this, "ondeath"));
+					Dungeon.fail(this);
 				}
 			}
 			
@@ -255,6 +264,8 @@ public class Bomb extends Item {
 			Actor.add( fuse = ((Fuse)bundle.get(FUSE)).ignite(this) );
 	}
 
+	//used to track the death from friendly magic badge, if an explosion was conjured by magic
+	public static class ConjuredBomb extends Bomb{};
 
 	public static class Fuse extends Actor{
 
@@ -262,7 +273,7 @@ public class Bomb extends Item {
 			actPriority = BLOB_PRIO+1; //after hero, before other actors
 		}
 
-		private Bomb bomb;
+		protected Bomb bomb;
 
 		public Fuse ignite(Bomb bomb){
 			this.bomb = bomb;
@@ -282,21 +293,7 @@ public class Bomb extends Item {
 			for (Heap heap : Dungeon.level.heaps.valueList()) {
 				if (heap.items.contains(bomb)) {
 
-					//FIXME this is a bit hacky, might want to generalize the functionality
-					//of bombs that don't explode instantly when their fuse ends
-					if (bomb instanceof Noisemaker){
-
-						((Noisemaker) bomb).setTrigger(heap.pos);
-
-					} else {
-
-						heap.remove(bomb);
-
-						bomb.explode(heap.pos);
-					}
-
-					diactivate();
-					Actor.remove(this);
+					trigger(heap);
 					return true;
 				}
 			}
@@ -304,6 +301,18 @@ public class Bomb extends Item {
 			//can't find our bomb, something must have removed it, do nothing.
 			bomb.fuse = null;
 			Actor.remove( this );
+			return true;
+		}
+
+		protected void trigger(Heap heap){
+			heap.remove(bomb);
+			bomb.explode(heap.pos);
+			Actor.remove(this);
+		}
+
+		public boolean freeze(){
+			bomb.fuse = null;
+			Actor.remove(this);
 			return true;
 		}
 	}
@@ -317,10 +326,10 @@ public class Bomb extends Item {
 		}
 
 		@Override
-		public boolean doPickUp(Hero hero) {
+		public boolean doPickUp(Hero hero, int pos) {
 			Bomb bomb = new Bomb();
 			bomb.quantity(2);
-			if (bomb.doPickUp(hero)) {
+			if (bomb.doPickUp(hero, pos)) {
 				//isaaaaac.... (don't bother doing this when not in english)
 				if (SPDSettings.language() == Languages.ENGLISH)
 					hero.sprite.showStatus(CharSprite.NEUTRAL, "1+1 free!");
@@ -352,20 +361,20 @@ public class Bomb extends Item {
 		
 		private static final HashMap<Class<?extends Bomb>, Integer> bombCosts = new HashMap<>();
 		static {
-			bombCosts.put(FrostBomb.class,      2);
-			bombCosts.put(WoollyBomb.class,     2);
+			bombCosts.put(FrostBomb.class,      0);
+			bombCosts.put(WoollyBomb.class,     0);
 			
-			bombCosts.put(Firebomb.class,       4);
-			bombCosts.put(Noisemaker.class,     4);
+			bombCosts.put(Firebomb.class,       1);
+			bombCosts.put(Noisemaker.class,     1);
 			
-			bombCosts.put(Flashbang.class,      6);
-			bombCosts.put(ShockBomb.class,      6);
+			bombCosts.put(Flashbang.class,      2);
+			bombCosts.put(ShockBomb.class,      2);
 
-			bombCosts.put(RegrowthBomb.class,   8);
-			bombCosts.put(HolyBomb.class,       8);
+			bombCosts.put(RegrowthBomb.class,   3);
+			bombCosts.put(HolyBomb.class,       3);
 			
-			bombCosts.put(ArcaneBomb.class,     10);
-			bombCosts.put(ShrapnelBomb.class,   10);
+			bombCosts.put(ArcaneBomb.class,     6);
+			bombCosts.put(ShrapnelBomb.class,   6);
 		}
 		
 		@Override

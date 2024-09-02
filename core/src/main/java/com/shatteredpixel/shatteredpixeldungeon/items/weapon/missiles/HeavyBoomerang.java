@@ -3,7 +3,7 @@
  * Copyright (C) 2012-2015 Oleg Dolya
  *
  * Shattered Pixel Dungeon
- * Copyright (C) 2014-2021 Evan Debenham
+ * Copyright (C) 2014-2024 Evan Debenham
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -49,35 +49,52 @@ public class HeavyBoomerang extends MissileWeapon {
 		return  4 * tier +                  //16 base, down from 20
 				(tier) * lvl;               //scaling unchanged
 	}
-	
+
+	boolean circleBackhit = false;
+
+	@Override
+	protected float adjacentAccFactor(Char owner, Char target) {
+		if (circleBackhit){
+			circleBackhit = false;
+			return 1.5f;
+		}
+		return super.adjacentAccFactor(owner, target);
+	}
+
 	@Override
 	protected void rangedHit(Char enemy, int cell) {
 		decrementDurability();
 		if (durability > 0){
-			Buff.append(Dungeon.hero, CircleBack.class).setup(this, cell, Dungeon.hero.pos, Dungeon.depth);
+			Buff.append(Dungeon.hero, CircleBack.class).setup(this, cell, Dungeon.hero.pos, Dungeon.depth, Dungeon.branch);
 		}
 	}
 	
 	@Override
 	protected void rangedMiss(int cell) {
 		parent = null;
-		Buff.append(Dungeon.hero, CircleBack.class).setup(this, cell, Dungeon.hero.pos, Dungeon.depth);
+		Buff.append(Dungeon.hero, CircleBack.class).setup(this, cell, Dungeon.hero.pos, Dungeon.depth, Dungeon.branch);
 	}
 	
 	public static class CircleBack extends Buff {
+
+		{
+			revivePersists = true;
+		}
 		
-		private MissileWeapon boomerang;
+		private HeavyBoomerang boomerang;
 		private int thrownPos;
 		private int returnPos;
 		private int returnDepth;
+		private int returnBranch;
 		
 		private int left;
 		
-		public void setup( MissileWeapon boomerang, int thrownPos, int returnPos, int returnDepth){
+		public void setup( HeavyBoomerang boomerang, int thrownPos, int returnPos, int returnDepth, int returnBranch){
 			this.boomerang = boomerang;
 			this.thrownPos = thrownPos;
 			this.returnPos = returnPos;
 			this.returnDepth = returnDepth;
+			this.returnBranch = returnBranch;
 			left = 3;
 		}
 		
@@ -89,10 +106,14 @@ public class HeavyBoomerang extends MissileWeapon {
 			detach();
 			return boomerang;
 		}
+
+		public int activeDepth(){
+			return returnDepth;
+		}
 		
 		@Override
 		public boolean act() {
-			if (returnDepth == Dungeon.depth){
+			if (returnDepth == Dungeon.depth && returnBranch == Dungeon.branch){
 				left--;
 				if (left <= 0){
 					final Char returnTarget = Actor.findChar(returnPos);
@@ -113,6 +134,7 @@ public class HeavyBoomerang extends MissileWeapon {
 												}
 												
 											} else if (returnTarget != null){
+												boomerang.circleBackhit = true;
 												if (((Hero)target).shoot( returnTarget, boomerang )) {
 													boomerang.decrementDurability();
 												}
@@ -141,7 +163,8 @@ public class HeavyBoomerang extends MissileWeapon {
 		private static final String THROWN_POS = "thrown_pos";
 		private static final String RETURN_POS = "return_pos";
 		private static final String RETURN_DEPTH = "return_depth";
-		
+		private static final String RETURN_BRANCH = "return_branch";
+
 		@Override
 		public void storeInBundle(Bundle bundle) {
 			super.storeInBundle(bundle);
@@ -149,15 +172,17 @@ public class HeavyBoomerang extends MissileWeapon {
 			bundle.put(THROWN_POS, thrownPos);
 			bundle.put(RETURN_POS, returnPos);
 			bundle.put(RETURN_DEPTH, returnDepth);
+			bundle.put(RETURN_BRANCH, returnBranch);
 		}
 		
 		@Override
 		public void restoreFromBundle(Bundle bundle) {
 			super.restoreFromBundle(bundle);
-			boomerang = (MissileWeapon) bundle.get(BOOMERANG);
+			boomerang = (HeavyBoomerang) bundle.get(BOOMERANG);
 			thrownPos = bundle.getInt(THROWN_POS);
 			returnPos = bundle.getInt(RETURN_POS);
 			returnDepth = bundle.getInt(RETURN_DEPTH);
+			returnBranch = bundle.contains(RETURN_BRANCH) ? bundle.getInt(RETURN_BRANCH) : 0;
 		}
 	}
 	

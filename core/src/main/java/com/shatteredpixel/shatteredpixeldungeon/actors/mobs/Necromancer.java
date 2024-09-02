@@ -3,7 +3,7 @@
  * Copyright (C) 2012-2015 Oleg Dolya
  *
  * Shattered Pixel Dungeon
- * Copyright (C) 2014-2021 Evan Debenham
+ * Copyright (C) 2014-2024 Evan Debenham
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -21,25 +21,29 @@
 
 package com.shatteredpixel.shatteredpixeldungeon.actors.mobs;
 
+import com.shatteredpixel.shatteredpixeldungeon.Badges;
 import com.shatteredpixel.shatteredpixeldungeon.Dungeon;
 import com.shatteredpixel.shatteredpixeldungeon.actors.Actor;
 import com.shatteredpixel.shatteredpixeldungeon.actors.Char;
 import com.shatteredpixel.shatteredpixeldungeon.actors.buffs.Adrenaline;
+import com.shatteredpixel.shatteredpixeldungeon.actors.buffs.AllyBuff;
 import com.shatteredpixel.shatteredpixeldungeon.actors.buffs.Buff;
 import com.shatteredpixel.shatteredpixeldungeon.actors.buffs.ChampionEnemy;
-import com.shatteredpixel.shatteredpixeldungeon.actors.buffs.Corruption;
 import com.shatteredpixel.shatteredpixeldungeon.effects.Beam;
+import com.shatteredpixel.shatteredpixeldungeon.effects.FloatingText;
 import com.shatteredpixel.shatteredpixeldungeon.effects.Pushing;
-import com.shatteredpixel.shatteredpixeldungeon.effects.Speck;
 import com.shatteredpixel.shatteredpixeldungeon.items.Item;
 import com.shatteredpixel.shatteredpixeldungeon.items.potions.PotionOfHealing;
 import com.shatteredpixel.shatteredpixeldungeon.items.scrolls.ScrollOfTeleportation;
+import com.shatteredpixel.shatteredpixeldungeon.messages.Messages;
 import com.shatteredpixel.shatteredpixeldungeon.scenes.GameScene;
+import com.shatteredpixel.shatteredpixeldungeon.sprites.CharSprite;
 import com.shatteredpixel.shatteredpixeldungeon.sprites.NecromancerSprite;
 import com.shatteredpixel.shatteredpixeldungeon.sprites.SkeletonSprite;
+import com.shatteredpixel.shatteredpixeldungeon.utils.GLog;
+import com.watabou.utils.BArray;
 import com.watabou.utils.Bundle;
 import com.watabou.utils.PathFinder;
-import com.watabou.utils.Random;
 
 public class Necromancer extends Mob {
 	
@@ -53,7 +57,7 @@ public class Necromancer extends Mob {
 		maxLvl = 14;
 		
 		loot = new PotionOfHealing();
-		lootChance = 0.2f; //see createloot
+		lootChance = 0.2f; //see lootChance()
 		
 		properties.add(Property.UNDEAD);
 		
@@ -63,7 +67,7 @@ public class Necromancer extends Mob {
 	public boolean summoning = false;
 	public int summoningPos = -1;
 	
-	private boolean firstSummon = true;
+	protected boolean firstSummon = true;
 	
 	private NecroSkeleton mySkeleton;
 	private int storedSkeletonID = -1;
@@ -76,20 +80,29 @@ public class Necromancer extends Mob {
 		}
 		return super.act();
 	}
-	
+
+	@Override
+	public void aggro(Char ch) {
+		super.aggro(ch);
+		if (mySkeleton != null && mySkeleton.isAlive()
+				&& Dungeon.level.mobs.contains(mySkeleton)
+				&& mySkeleton.alignment == alignment){
+			mySkeleton.aggro(ch);
+		}
+	}
+
 	@Override
 	public int drRoll() {
-		return Random.NormalIntRange(0, 5);
+		return super.drRoll() + Char.combatRoll(0, 5);
 	}
 	
 	@Override
-	public void rollToDropLoot() {
-		lootChance *= ((6f - Dungeon.LimitedDrops.NECRO_HP.count) / 6f);
-		super.rollToDropLoot();
+	public float lootChance() {
+		return super.lootChance() * ((6f - Dungeon.LimitedDrops.NECRO_HP.count) / 6f);
 	}
 	
 	@Override
-	protected Item createLoot(){
+	public Item createLoot(){
 		Dungeon.LimitedDrops.NECRO_HP.count++;
 		return super.createLoot();
 	}
@@ -104,7 +117,7 @@ public class Necromancer extends Mob {
 			}
 		}
 		
-		if (mySkeleton != null && mySkeleton.isAlive()){
+		if (mySkeleton != null && mySkeleton.isAlive() && mySkeleton.alignment == alignment){
 			mySkeleton.die(null);
 		}
 		
@@ -161,8 +174,10 @@ public class Necromancer extends Mob {
 				sprite.parent.add(new Beam.HealthRay(sprite.center(), mySkeleton.sprite.center()));
 			}
 			
-			mySkeleton.HP = Math.min(mySkeleton.HP + 5, mySkeleton.HT);
-			if (mySkeleton.sprite.visible) mySkeleton.sprite.emitter().burst( Speck.factory( Speck.HEALING ), 1 );
+			mySkeleton.HP = Math.min(mySkeleton.HP + mySkeleton.HT/5, mySkeleton.HT);
+			if (mySkeleton.sprite.visible) {
+				mySkeleton.sprite.showStatusWithIcon( CharSprite.POSITIVE, Integer.toString( mySkeleton.HT/5 ), FloatingText.HEALING );
+			}
 			
 		//otherwise give it adrenaline
 		} else if (mySkeleton.buff(Adrenaline.class) == null) {
@@ -176,12 +191,80 @@ public class Necromancer extends Mob {
 		
 		next();
 	}
+
+	public void summonMinion(){
+		if (Actor.findChar(summoningPos) != null) {
+
+			//cancel if character cannot be moved
+			if (Char.hasProp(Actor.findChar(summoningPos), Property.IMMOVABLE)){
+				summoning = false;
+				((NecromancerSprite)sprite).finishSummoning();
+				spend(TICK);
+				return;
+			}
+
+			int pushPos = pos;
+			for (int c : PathFinder.NEIGHBOURS8) {
+				if (Actor.findChar(summoningPos + c) == null
+						&& Dungeon.level.passable[summoningPos + c]
+						&& (Dungeon.level.openSpace[summoningPos + c] || !hasProp(Actor.findChar(summoningPos), Property.LARGE))
+						&& Dungeon.level.trueDistance(pos, summoningPos + c) > Dungeon.level.trueDistance(pos, pushPos)) {
+					pushPos = summoningPos + c;
+				}
+			}
+
+			//push enemy, or wait a turn if there is no valid pushing position
+			if (pushPos != pos) {
+				Char ch = Actor.findChar(summoningPos);
+				Actor.add( new Pushing( ch, ch.pos, pushPos ) );
+
+				ch.pos = pushPos;
+				Dungeon.level.occupyCell(ch );
+
+			} else {
+
+				Char blocker = Actor.findChar(summoningPos);
+				if (blocker.alignment != alignment){
+					blocker.damage( Char.combatRoll(2, 10), new SummoningBlockDamage() );
+					if (blocker == Dungeon.hero && !blocker.isAlive()){
+						Badges.validateDeathFromEnemyMagic();
+						Dungeon.fail(this);
+						GLog.n( Messages.capitalize(Messages.get(Char.class, "kill", name())) );
+					}
+				}
+
+				spend(TICK);
+				return;
+			}
+		}
+
+		summoning = firstSummon = false;
+
+		mySkeleton = new NecroSkeleton();
+		mySkeleton.pos = summoningPos;
+		GameScene.add( mySkeleton );
+		Dungeon.level.occupyCell( mySkeleton );
+		((NecromancerSprite)sprite).finishSummoning();
+
+		for (Buff b : buffs(AllyBuff.class)){
+			Buff.affect(mySkeleton, b.getClass());
+		}
+		for (Buff b : buffs(ChampionEnemy.class)){
+			Buff.affect( mySkeleton, b.getClass());
+		}
+	}
+
+	public static class SummoningBlockDamage{}
 	
 	private class Hunting extends Mob.Hunting{
 		
 		@Override
 		public boolean act(boolean enemyInFOV, boolean justAlerted) {
 			enemySeen = enemyInFOV;
+
+			if (enemySeen){
+				target = enemy.pos;
+			}
 			
 			if (storedSkeletonID != -1){
 				Actor ch = Actor.findById(storedSkeletonID);
@@ -192,55 +275,7 @@ public class Necromancer extends Mob {
 			}
 			
 			if (summoning){
-				
-				//push anything on summoning spot away, to the furthest valid cell
-				if (Actor.findChar(summoningPos) != null) {
-					int pushPos = pos;
-					for (int c : PathFinder.NEIGHBOURS8) {
-						if (Actor.findChar(summoningPos + c) == null
-								&& Dungeon.level.passable[summoningPos + c]
-								&& (Dungeon.level.openSpace[summoningPos + c] || !hasProp(Actor.findChar(summoningPos), Property.LARGE))
-								&& Dungeon.level.trueDistance(pos, summoningPos + c) > Dungeon.level.trueDistance(pos, pushPos)) {
-							pushPos = summoningPos + c;
-						}
-					}
-					
-					//push enemy, or wait a turn if there is no valid pushing position
-					if (pushPos != pos) {
-						Char ch = Actor.findChar(summoningPos);
-						Actor.addDelayed( new Pushing( ch, ch.pos, pushPos ), -1 );
-						
-						ch.pos = pushPos;
-						Dungeon.level.occupyCell(ch );
-						
-					} else {
-
-						Char blocker = Actor.findChar(summoningPos);
-						if (blocker.alignment != alignment){
-							blocker.damage( Random.NormalIntRange(2, 10), this );
-						}
-
-						spend(TICK);
-						return true;
-					}
-				}
-				
-				summoning = firstSummon = false;
-				
-				mySkeleton = new NecroSkeleton();
-				mySkeleton.pos = summoningPos;
-				GameScene.add( mySkeleton );
-				Dungeon.level.occupyCell( mySkeleton );
-				((NecromancerSprite)sprite).finishSummoning();
-				
-				if (buff(Corruption.class) != null){
-					Buff.affect(mySkeleton, Corruption.class);
-				}
-				for (Buff b : buffs(ChampionEnemy.class)){
-					Buff.affect( mySkeleton, b.getClass());
-				}
-				
-				spend(TICK);
+				summonMinion();
 				return true;
 			}
 			
@@ -251,13 +286,19 @@ public class Necromancer extends Mob {
 				mySkeleton = null;
 			}
 			
-			//if enemy is seen, and enemy is within range, and we haven no skeleton, summon a skeleton!
+			//if enemy is seen, and enemy is within range, and we have no skeleton, summon a skeleton!
 			if (enemySeen && Dungeon.level.distance(pos, enemy.pos) <= 4 && mySkeleton == null){
 				
 				summoningPos = -1;
+
+				//we can summon around blocking terrain, but not through it
+				PathFinder.buildDistanceMap(pos, BArray.not(Dungeon.level.solid, null), Dungeon.level.distance(pos, enemy.pos)+3);
+
 				for (int c : PathFinder.NEIGHBOURS8){
 					if (Actor.findChar(enemy.pos+c) == null
+							&& PathFinder.distance[enemy.pos+c] != Integer.MAX_VALUE
 							&& Dungeon.level.passable[enemy.pos+c]
+							&& (!hasProp(Necromancer.this, Property.LARGE) || Dungeon.level.openSpace[enemy.pos+c])
 							&& fieldOfView[enemy.pos+c]
 							&& Dungeon.level.trueDistance(pos, enemy.pos+c) < Dungeon.level.trueDistance(pos, summoningPos)){
 						summoningPos = enemy.pos+c;
@@ -279,7 +320,6 @@ public class Necromancer extends Mob {
 			//otherwise, if enemy is seen, and we have a skeleton...
 			} else if (enemySeen && mySkeleton != null){
 				
-				target = enemy.pos;
 				spend(TICK);
 				
 				if (!fieldOfView[mySkeleton.pos]){
@@ -292,6 +332,7 @@ public class Necromancer extends Mob {
 							if (Actor.findChar(enemy.pos+c) == null
 									&& Dungeon.level.passable[enemy.pos+c]
 									&& fieldOfView[enemy.pos+c]
+									&& (Dungeon.level.openSpace[enemy.pos+c] || !Char.hasProp(mySkeleton, Property.LARGE))
 									&& Dungeon.level.trueDistance(pos, enemy.pos+c) < Dungeon.level.trueDistance(pos, telePos)){
 								telePos = enemy.pos+c;
 							}

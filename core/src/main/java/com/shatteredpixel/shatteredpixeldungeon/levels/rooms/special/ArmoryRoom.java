@@ -3,7 +3,7 @@
  * Copyright (C) 2012-2015 Oleg Dolya
  *
  * Shattered Pixel Dungeon
- * Copyright (C) 2014-2021 Evan Debenham
+ * Copyright (C) 2014-2024 Evan Debenham
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -26,6 +26,7 @@ import com.shatteredpixel.shatteredpixeldungeon.items.Generator;
 import com.shatteredpixel.shatteredpixeldungeon.items.Item;
 import com.shatteredpixel.shatteredpixeldungeon.items.bombs.Bomb;
 import com.shatteredpixel.shatteredpixeldungeon.items.keys.IronKey;
+import com.shatteredpixel.shatteredpixeldungeon.items.trinkets.TrinketCatalyst;
 import com.shatteredpixel.shatteredpixeldungeon.levels.Level;
 import com.shatteredpixel.shatteredpixeldungeon.levels.Terrain;
 import com.shatteredpixel.shatteredpixeldungeon.levels.painters.Painter;
@@ -55,6 +56,7 @@ public class ArmoryRoom extends SpecialRoom {
 		}
 		
 		int n = Random.IntRange( 2, 3 );
+		prizeCats = new float[]{1,1,1,1};
 		for (int i=0; i < n; i++) {
 			int pos;
 			do {
@@ -62,13 +64,26 @@ public class ArmoryRoom extends SpecialRoom {
 			} while (level.map[pos] != Terrain.EMPTY || level.heaps.get( pos ) != null);
 			level.drop( prize( level ), pos );
 		}
+
+		Item cata = level.findPrizeItem(TrinketCatalyst.class);
+		if (cata != null){
+			int pos;
+			do {
+				pos = level.pointToCell(random());
+			} while (level.map[pos] != Terrain.EMPTY || level.heaps.get( pos ) != null);
+			level.drop( cata, pos );
+		}
 		
 		entrance.set( Door.Type.LOCKED );
 		level.addItemToSpawn( new IronKey( Dungeon.depth ) );
 	}
-	
+
+	//only a max of 1 prize from each category can be dropped at a time
+	private static float[] prizeCats;
 	private static Item prize( Level level ) {
-		switch (Random.Int( 4 )){
+		int index = Random.chances(prizeCats);
+		prizeCats[index] = 0;
+		switch (index){
 			case 0:
 				return new Bomb().random();
 			case 1:

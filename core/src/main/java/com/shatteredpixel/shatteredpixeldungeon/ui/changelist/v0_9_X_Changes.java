@@ -3,7 +3,7 @@
  * Copyright (C) 2012-2015 Oleg Dolya
  *
  * Shattered Pixel Dungeon
- * Copyright (C) 2014-2020 Evan Debenham
+ * Copyright (C) 2014-2024 Evan Debenham
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -21,8 +21,6 @@
 
 package com.shatteredpixel.shatteredpixeldungeon.ui.changelist;
 
-import com.badlogic.gdx.Application;
-import com.badlogic.gdx.Gdx;
 import com.shatteredpixel.shatteredpixeldungeon.Assets;
 import com.shatteredpixel.shatteredpixeldungeon.actors.hero.HeroSubClass;
 import com.shatteredpixel.shatteredpixeldungeon.actors.hero.Talent;
@@ -42,6 +40,7 @@ import com.shatteredpixel.shatteredpixeldungeon.sprites.ItemSpriteSheet;
 import com.shatteredpixel.shatteredpixeldungeon.sprites.SpawnerSprite;
 import com.shatteredpixel.shatteredpixeldungeon.sprites.SpinnerSprite;
 import com.shatteredpixel.shatteredpixeldungeon.ui.Icons;
+import com.shatteredpixel.shatteredpixeldungeon.ui.TalentIcon;
 import com.shatteredpixel.shatteredpixeldungeon.ui.Window;
 import com.watabou.noosa.Image;
 
@@ -61,74 +60,6 @@ public class v0_9_X_Changes {
 		changes.hardlight(Window.TITLE_COLOR);
 		changeInfos.add(changes);
 
-		changes = new ChangeInfo("", false, null);
-		changes.hardlight(Window.TITLE_COLOR);
-		changeInfos.add(changes);
-
-		changes = new ChangeInfo("v0.9.3c", false, null);
-		changes.hardlight(Window.TITLE_COLOR);
-		changeInfos.add(changes);
-
-		if (Gdx.app.getType() == Application.ApplicationType.Android && Gdx.app.getVersion() < 14) {
-			changes.addButton(new ChangeButton(Icons.get(Icons.WARNING), "Android 2.3 and 3 Support",
-					"v0.9.3c is the final version of Shattered Pixel Dungeon which supports Android 2.3 Gingerbread and Android 3 Honeycomb. I don't currently have plans to end support for other Android versions.\n\n" +
-					"If you'd like to keep up to date on future updates, check out the blog at _ShatteredPixel.com_"));
-		}
-
-		changes.addButton(new ChangeButton(Icons.get(Icons.PREFS), Messages.get(ChangesScene.class, "misc"),
-				"_-_ The hero can now collect dew on stairs, even if they are at full HP.\n\n" +
-				"_-_ In the Google Play version of the game, the player can now separately enable Google Play Games and opt-out of sharing gameplay data."));
-
-		changes.addButton(new ChangeButton(new Image(Assets.Sprites.SPINNER, 144, 0, 16, 16), Messages.get(ChangesScene.class, "bugfixes"),
-				"Fixed (caused by v0.9.3):\n" +
-				"_-_ Various errors with warp beacon\n" +
-				"_-_ Quick use window being usable after hero death\n" +
-				"_-_ Rare cases of rankings failing to load\n" +
-				"_-_ Fear from death mark lasting far longer than intended\n" +
-				"_-_ Errors with the Lightweight Cloak talent\n\n" +
-				"Fixed (existed prior to v0.9.3):\n" +
-				"_-_ Necromancers sometimes losing track of their skeleton\n" +
-				"_-_ Deaths to Dwarf King rarely not being recorded in rankings\n" +
-				"_-_ Various minor text errors"));
-
-		changes = new ChangeInfo("v0.9.3b", false, null);
-		changes.hardlight(Window.TITLE_COLOR);
-		changeInfos.add(changes);
-
-		changes.addButton(new ChangeButton(Icons.get(Icons.PREFS), Messages.get(ChangesScene.class, "misc"),
-				"It is now possible to access a quick-use window by quickslotting a bag or by long-pressing the inventory! A few items that were missing quick actions have also been given them, and bags can now appear in the rankings.\n\n" +
-				"_-_ Runestones of flock now also activate before triggering traps"));
-
-		changes.addButton(new ChangeButton(new Image(Assets.Sprites.SPINNER, 144, 0, 16, 16), Messages.get(ChangesScene.class, "bugfixes"),
-				"Fixed (caused by v0.9.3):\n" +
-				"_-_ Deactivating cloak ending preparation when Assassin is invisible by other means as well\n" +
-				"_-_ Flying transmogrified enemies not falling if above chasms\n\n" +
-				"Fixed (existed prior to v0.9.3):\n" +
-				"_-_ Various rare crash bugs\n" +
-				"_-_ Chaos elemental teleportation not interrupting the hero\n" +
-				"_-_ Pacifist badge not triggering if hero descended by falling"));
-
-		changes = new ChangeInfo("v0.9.3a", false, null);
-		changes.hardlight(Window.TITLE_COLOR);
-		changeInfos.add(changes);
-
-		changes.addButton(new ChangeButton(Icons.get(Icons.PREFS), Messages.get(ChangesScene.class, "misc"),
-				"_-_ Runestones now press tiles when they are thrown (stones of disarming specifically activate before triggering traps)"));
-
-		changes.addButton(new ChangeButton(new Image(Assets.Sprites.SPINNER, 144, 0, 16, 16), Messages.get(ChangesScene.class, "bugfixes"),
-				"Fixed (caused by v0.9.3):\n" +
-				"_-_ Various freeze bugs that were common for certain users\n" +
-				"_-_ Various rare crashes\n" +
-				"_-_ Giant swarms still duplicating into enclosed spaces in rare cases\n" +
-				"_-_ Game freeze bugs with wild magic\n" +
-				"_-_ Various bugs with warp beacon telefragging\n" +
-				"_-_ Ethereal chains causing quickslot UI issues\n\n" +
-				"Fixed (existed prior to v0.9.3):\n" +
-				"_-_ On-hit effects triggering on invulnerable pylons\n" +
-				"_-_ Wells of healing not fully healing the hero in all cases\n" +
-				"_-_ Lightweight cloak getting cancelled when equipped/unequipped\n" +
-				"_-_ Displacing darts sometimes teleporting enemies into unreachable places"));
-
 		changes = new ChangeInfo(Messages.get(ChangesScene.class, "new"), false, null);
 		changes.hardlight(Window.TITLE_COLOR);
 		changeInfos.add(changes);
@@ -137,7 +68,9 @@ public class v0_9_X_Changes {
 				"_-_ Released June 7th, 2021\n" +
 				"_-_ 101 days after Shattered v0.9.2\n" +
 				"\n" +
-				"Dev commentary will be added here in the future."));
+				"v0.9.3 was the largest talent addition yet, with over 50 total talents and 9 new armor abilities! Armor abilities were another thing that I always intended to work with the talent system. They now fit in as a bit of an equivalent to subclasses with their own customization options both from talents and the abilities themselves. These talents also heavily impact the power of their respective armor abilities, meaning that the same ability can be quite different depending on which talents you choose to upgrade.\n" +
+				"\n" +
+				"This update also included Shattered's second new challenge! Badder bosses was rattling around in my head ever since the release of v0.8.0, as I knew it would be very easy to make stronger versions of each of the new boss encounters that weren't just based on higher stats. Badder bosses was well received while still managing to be distinct from hostile champions. Hostile champions is a bit more random and can apply anywhere, whereas badder bosses is consistent in its effect but only applies during specific fights."));
 
 		changes.addButton( new ChangeButton(new ItemSprite(ItemSpriteSheet.CROWN, null), "Armor abilities and T4 Talents!",
 				"_Hero armor abilities have been totally overhauled, featuring 13 abilities and 40 T4 talents!_\n\n" +
@@ -158,7 +91,7 @@ public class v0_9_X_Changes {
 		changes.hardlight(CharSprite.WARNING);
 		changeInfos.add(changes);
 
-		changes.addButton(new ChangeButton(Icons.get(Icons.DEPTH), "Dungeon Changes",
+		changes.addButton(new ChangeButton(Icons.get(Icons.STAIRS), "Dungeon Changes",
 				"I'm making some slight tweaks to level sizes and layouts, to make the game overall a little shorter, and to put a bit more emphasis on the final region:\n\n" +
 				"_-_ Standard room count down by roughly 10/20/15/15/5%, for each region\n" +
 				"_-_ Connection room frequency down by ~25%\n\n" +
@@ -181,9 +114,18 @@ public class v0_9_X_Changes {
 				"_-_ Overhauled the subclass selection interface, now much more informative."));
 
 		changes.addButton(new ChangeButton(Icons.get(Icons.PREFS), Messages.get(ChangesScene.class, "misc"),
-				"_-_ Long pressing now uses the system long-press time (default 0.5 sec), instead of taking 1 second.\n\n" +
-				"_-_ Deactivating the cloak of shadows no longer takes time.\n\n" +
+				"_-_ Quickslotting a bag or long-pressing the inventory now shows a quick-use windows!\n" +
+				"_-_ Added quickslot actions for some items that were missing them\n" +
+				"_-_ Bags can now appear in the rankings\n\n" +
+
+				"_-_ Long pressing now uses the system long-press time (default 0.5 sec).\n" +
+				"_-_ Google Play Games and sharing gameplay data can now be enabled separately.\n\n" +
+
+				"_-_ Deactivating the cloak of shadows no longer takes time.\n" +
+				"_-_ Runestones now press tiles when they are thrown.\n" +
+				"_-_ The hero can now collect dew on stairs, even if they are at full HP.\n" +
 				"_-_ Improved the functionality for allies following the hero into locked boss arenas.\n\n" +
+
 				"_-_ Improved the descriptions of combo abilities\n" +
 				"_-_ Added dev commentary for v0.6.0-v0.6.5\n" +
 				"_-_ The Unstable Spellbook now greys out scrolls that have already been fed to it.\n" +
@@ -196,8 +138,8 @@ public class v0_9_X_Changes {
 				"_-_ Various rare crash issues\n" +
 				"_-_ Various minor VFX/SFX/text issues\n" +
 				"_-_ Various exploits caused by window stacking and multitaps\n" +
-				"_-_ Resting causing time to pass faster at high framerates\n\n" +
-				"_-_ Errors when zooming with mouse and keyboard keys\n" +
+				"_-_ Resting causing time to pass faster at high framerates\n" +
+				"_-_ Errors when zooming with mouse and keyboard keys\n\n" +
 
 				"_-_ Thief's Intuition not working in rare cases\n" +
 				"_-_ Berries rarely appearing in hero's remains\n" +
@@ -209,9 +151,8 @@ public class v0_9_X_Changes {
 				"_-_ AOE from crush combo move being blocked by chasms\n" +
 				"_-_ Blocking enchant and barkskin only applying to the hero\n" +
 				"_-_ Ghost hero not saying anything when the hero dies\n" +
-				"_-_ Various rare AI bugs with Ghost hero"));
+				"_-_ Various rare AI bugs with Ghost hero",
 
-		changes.addButton(new ChangeButton(new Image(Assets.Sprites.SPINNER, 144, 0, 16, 16), Messages.get(ChangesScene.class, "bugfixes"),
 				"_-_ Incendiary darts being instantly used up when used on terrain\n" +
 				"_-_ Wands of regrowth and fireblast using more than 3 charges in rare cases\n" +
 				"_-_ Knockback effects not always working on dead characters\n" +
@@ -219,18 +160,24 @@ public class v0_9_X_Changes {
 				"_-_ Hero accepting input while using potion of dragon's breath\n" +
 				"_-_ Vision effects from talisman and arcane vision not working after save/load\n" +
 				"_-_ Aqua rejuv working while hero is levitating\n" +
-				"_-_ Seeds disappearing if they fall into a chasm with the barren land challenge enabled\n\n" +
+				"_-_ Seeds disappearing if they fall into a chasm with the barren land challenge enabled\n" +
+				"_-_ Displacing darts sometimes teleporting enemies into unreachable places\n" +
+				"_-_ Items with boosted levels being remove-cursable\n" +
+				"_-_ Magical infusion not clearing the degrade debuff",
 
 				"_-_ Giant swarms duplicating in enclosed spaces\n" +
 				"_-_ Giant champions being able to attack through other characters\n" +
-				"_-_ Ghouls rarely healing without reviving\n\n" +
+				"_-_ Ghouls rarely healing without reviving\n" +
+				"_-_ Necromancers sometimes losing track of their skeleton\n" +
+				"_-_ Chaos elemental teleportation not interrupting the hero\n" +
+				"_-_ On-hit effects triggering on invulnerable pylons\n" +
+				"_-_ Deaths to Dwarf King rarely not being recorded in rankings\n\n" +
 
 				"_-_ Quickslots not appearing greyed out when they should\n" +
 				"_-_ Rare cases where non-visible cells would appear visible\n" +
-				"_-_ Game log entries not appearing from alchemy scene\n\n" +
-
-				"_-_ Items with boosted levels being remove-cursable\n" +
-				"_-_ Magical infusion not clearing the degrade debuff"));
+				"_-_ Pacifist badge not triggering if hero descended by falling\n" +
+				"_-_ Wells of healing not fully healing the hero in all cases\n" +
+				"_-_ Game log entries not appearing from alchemy scene"));
 
 		changes = new ChangeInfo(Messages.get(ChangesScene.class, "buffs"), false, null);
 		changes.hardlight(CharSprite.POSITIVE);
@@ -286,7 +233,9 @@ public class v0_9_X_Changes {
 				"_-_ Released February 26th, 2021\n" +
 				"_-_ 78 days after Shattered v0.9.1\n" +
 				"\n" +
-				"Dev commentary will be added here in the future."));
+				"v0.9.2 added the first tier of talents that were applicable through the later stages of the game. This is where the talent system really started to feel like it was deepening existing character customization systems in the game, rather than being tacked on top of them. It was always my intention for talents to work with subclasses as well, as there were lots of little subclass-level effects that could be fun but couldn't fit into their own full subclass. Talents give these mechanics a place to exist that compliments the game's existing systems.\n" +
+				"\n" +
+				"These talent additions also gave me balance room to give some help to weaker enemies and also better balance the various subclasses. Subclasses that were already a bit strong got some of their innate powers moved to talents, wheras other subclasses got entirely new effects via the talent system. The Gladiator and freerunner in particular got more wide-reaching changes for both balance and design reasons."));
 
 		changes.addButton(new ChangeButton(Icons.get(Icons.TALENT), "Tier Three Talents!",
 				"_32 new talents have been added that span levels 13 to 20!_\n\n" +
@@ -356,10 +305,8 @@ public class v0_9_X_Changes {
 				"_-_ Ethereal Chains pulling a rooted hero\n" +
 				"_-_ Cloak of Shadows spending an extra charge on save/load\n" +
 				"_-_ kinetic enchantment ignoring enemy shields\n" +
-				"_-_ regrowth bombs placing plants in incorrect locations"));
+				"_-_ regrowth bombs placing plants in incorrect locations",
 
-			changes.addButton(new ChangeButton(new Image(Assets.Sprites.SPINNER, 144, 0, 16, 16), Messages.get(ChangesScene.class, "bugfixes"),
-				"Fixed:\n" +
 				"_-_ combo moves not cancelling invisibility or time freeze\n" +
 				"_-_ cases where Assassin couldn't blink to places he should be able to blink to.\n" +
 				"_-_ some on-eat talents unintentionally stacking with themselves\n" +
@@ -401,7 +348,7 @@ public class v0_9_X_Changes {
 				"_-_ Rather than having a 1/8 chance per enemy, the game now guarantees that every 8th enemy is a champion. This should make champion spawn rates much more consistent.\n" +
 				"_-_ Removed champion enemy caps, no longer needed now that spawning is more consistent."));
 
-		changes.addButton(new ChangeButton(new Image(Assets.Interfaces.TALENT_ICONS, 80, 16, 16, 16), "On-Upgrade Talents",
+		changes.addButton(new ChangeButton(new ItemSprite(ItemSpriteSheet.SCROLL_TIWAZ), "On-Upgrade Talents",
 				"T2 talents are doing very well overall, but I'm handing out a buff to each on-upgrade talent as they're a bit weak and aren't picked often:\n\n" +
 				"_- Energizing Upgrade_ staff charges increased to 2/3 at +1/+2, up from 1/2 at +1/+2.\n" +
 				"_- Mystical Upgrade_ cloak of shadows charges increased to 2/3 at +1/+2, up from 1/2 at +1/+2."));
@@ -420,7 +367,7 @@ public class v0_9_X_Changes {
 				"_- the Chalice of Blood_ now grants more HP per turn with artifact charging based on its level, instead of based on dungeon depth.\n" +
 				"_-_ This scaling occurs in the same way as how the chalice scales up health regen. The max heal per turn is unchanged at 5."));
 
-		changes.addButton(new ChangeButton(new Image(Assets.Interfaces.TALENT_ICONS, 48, 48, 16, 16), "Nature's Aid",
+		changes.addButton(new ChangeButton(new TalentIcon(Talent.NATURES_AID), "Nature's Aid",
 				"I'm nudging nature's down slightly as it is currently the strongest T1 talent by a fair margin:\n\n" +
 				"_- Nature's Aid_ turns of barkskin reduced to 3/5 at +1/+2, from 4/6 at +1/+2."));
 
@@ -440,14 +387,18 @@ public class v0_9_X_Changes {
 				"_-_ Released December 11th, 2020\n" +
 				"_-_ 68 days after Shattered v0.9.0\n" +
 				"\n" +
-				"Dev commentary will be added here in the future."));
+				"v0.9.1 continued on the momentum of v0.9.0, adding a new tier of talents spanning the mid game. These talents were a lot more satisfying for players to use, as they were able to more significantly shape gameplay when compared to the early game talents added in v0.9.0.\n" +
+				"\n" +
+				"I also became a lot more sure that I was making the right call by splitting the talent system into multiple updates. v0.9.1 was released quickly, more than doubled the number of talents, and made a bunch of crucial improvements to the talents added in v0.9.0. Had I released the entire system in one go then these sorts of growing pains would have stuck around for much longer.\n" +
+				"\n" +
+				"v0.9.1 also includes the first major changes to level generation since v0.6.2! While the same base algorithms are still used to lay levels out, v0.9.1 made overall level structures more chaotic and varied, which really helped individual layouts feel more unique."));
 
 		changes.addButton(new ChangeButton(Icons.get(Icons.TALENT), "Tier Two Talents!",
 				"_A second tier of talents has been added, including twenty new talents spanning levels 7-12!_\n\n" +
 				"The second talent tier is similar to the first, but talent powers are much less focused on the early game. Expect effects that are useful all game long.\n\n" +
 				"Look forward to tier 3 of the talent system coming in v0.9.2, which will span levels 13-20."));
 
-		changes.addButton(new ChangeButton(Icons.get(Icons.DEPTH), "Levelgen Improvements!",
+		changes.addButton(new ChangeButton(Icons.get(Icons.STAIRS), "Levelgen Improvements!",
 				"_The game's level generation system has received a number of improvements!:_\n\n" +
 				"_-_ A new region specific room has been added to each dungeon region, 5 in total.\n" +
 				"_-_ Three new level feelings have been added: large, secrets, and traps.\n" +
@@ -484,13 +435,11 @@ public class v0_9_X_Changes {
 				"_-_ The Mage's staff is no longer automatically set to max charges when imbuing a new wand.\n" +
 				"_-_ Frozen carpaccio can now burn like mystery meat\n\n" +
 				"_-_ Necromancers now damage enemies if their summoning position is totally blocked\n" +
-				"_-_ Piranha are no longer invulnerable to electricity and frost\n\n" +
+				"_-_ Piranha are no longer invulnerable to electricity and frost",
 				"_-_ Barriers now decay more slowly when under 20 shielding.\n" +
 				"_-_ Sniper's mark, charm, and terror all now cancel if their subject is dead.\n" +
 				"_-_ Rogue's foresight can now also trigger when returning to a floor, if that floor was detected initially\n" +
-				"_-_ The Overgrowth curse can now trigger starflower effects"));
-
-		changes.addButton(new ChangeButton(Icons.get(Icons.PREFS), Messages.get(ChangesScene.class, "misc"),
+				"_-_ The Overgrowth curse can now trigger starflower effects\n\n" +
 				"_-_ Slightly adjusted the Huntress' splash art to improve details on her face.\n" +
 				"_-_ The Sad Ghost's reward UI has been improved.\n" +
 				"_-_ Small UI improvements to rankings window\n" +
@@ -515,10 +464,8 @@ public class v0_9_X_Changes {
 				"_-_ Dwarf King and some Yog fists rarely taking negative damage\n" +
 				"_-_ Warlocks not having capped health potions drops\n" +
 				"_-_ Large characters entering tunnels when vertigoed\n" +
-				"_-_ Rare AI issues when paths are blocked"));
+				"_-_ Rare AI issues when paths are blocked",
 
-		changes.addButton(new ChangeButton(new Image(Assets.Sprites.SPINNER, 144, 0, 16, 16), Messages.get(ChangesScene.class, "bugfixes"),
-				"Fixed:\n" +
 				"_-_ Various minor errors relating to time freeze\n" +
 				"_-_ Assassin blink ignoring hero being rooted\n" +
 				"_-_ Various rare bugs with corruption\n" +
@@ -566,7 +513,7 @@ public class v0_9_X_Changes {
 		changes.hardlight(CharSprite.NEGATIVE);
 		changeInfos.add(changes);
 
-		changes.addButton( new ChangeButton( new Image(Assets.Interfaces.TALENT_ICONS, 0, 0, 16, 16), Talent.HEARTY_MEAL.title(),
+		changes.addButton( new ChangeButton( new TalentIcon(Talent.HEARTY_MEAL), Talent.HEARTY_MEAL.title(),
 				"_Hearty Meal_ is currently the strongest tier one talent in the game, so I'm deepening the missing health requirement slightly to make its power a bit harder to access:\n\n" +
 				"_-_ Now grants 2/3 healing when hero is below 50% health, down from 3/5\n" +
 				"_-_ The full 3/5 heal is still available if the hero is below 25% health"));
@@ -592,7 +539,11 @@ public class v0_9_X_Changes {
 				"_-_ 61 days after Shattered v0.8.2\n" +
 				"_-_ 173 days after Shattered v0.8.0\n" +
 				"\n" +
-				"Dev commentary will be added here in the future."));
+				"v0.9.0 was the beginning of Shattered's second new gameplay system! The talent system was primarily designed to address consistent feedback that leveling up wasn't very satisfying. I wanted talents to deepen character customization and give the player a reason to feel excited about levelling up.\n" +
+				"\n" +
+				"I opted to split the talent system over multiple updates, rather than implement it all at once. This mean that v0.9.0 had an impressively short dev time of just two months, although it also meant that the talent system was pretty barebones to start.\n" +
+				"\n" +
+				"This update also included Shattered's first new challenge! The goal of hostile champions was to increase overall difficulty by adding new mechanics to the game, instead of removing them. This worked out very well, and led to a followup challenge addition just a couple of updates later."));
 
 		changes.addButton(new ChangeButton(Icons.get(Icons.TALENT), "Hero Talents!",
 				"_A new gameplay system has been added!_\n\n" +
@@ -632,9 +583,8 @@ public class v0_9_X_Changes {
 				"_-_ Tweaked some interface visuals to be more rounded.\n\n" +
 				"_-_ Spider webs are now flammable, and can be shot through by fireblast.\n" +
 				"_-_ The reclaim trap spell can no longer be dropped when a trap is stored in it. This prevents an exploit.\n" +
-				"_-_ Items gained from secret mazes are now known to be uncursed."));
+				"_-_ Items gained from secret mazes are now known to be uncursed.",
 
-		changes.addButton(new ChangeButton(Icons.get(Icons.PREFS), Messages.get(ChangesScene.class, "misc"),
 				"I'm making some adjustments to sewers loot to give players a bit more control of what gear they get, and to reduce the chance of spawning high tier gear that the player may never get to use:\n" +
 				"_-_ Chance for regular gear drops in the sewers to be T4/T5 reduced by 50%.\n" +
 				"_-_ Players can now see what type of weapon/armor the sad ghost has before selecting it.\n\n" +
@@ -658,15 +608,13 @@ public class v0_9_X_Changes {
 				"_-_ Spinners shooting webs though walls\n" +
 				"_-_ Elastic enchantment closing doors when used with spirit bow\n" +
 				"_-_ Shopkeepers buying items worth 0 gold\n" +
-				"_-_ Duplicate artifacts in rare cases\n" +
+				"_-_ Duplicate artifacts in rare cases",
+
 				"_-_ Custom names not applying to Mage's staff\n" +
 				"_-_ Ring of might not reducing max HP when degraded\n" +
 				"_-_ Rare bugs involving ripper demon leaping\n" +
 				"_-_ Hero unable to cleanse fire with chill when immune to it, and vice-versa\n" +
-				"_-_ DM-201's attacking while stunned"));
-
-		changes.addButton(new ChangeButton(new Image(Assets.Sprites.SPINNER, 144, 0, 16, 16), Messages.get(ChangesScene.class, "bugfixes"),
-				"Fixed (existed prior to v0.9.0):\n" +
+				"_-_ DM-201's attacking while stunned\n" +
 				"_-_ Tengu's abilities being reset by saving/loading\n" +
 				"_-_ Various cases where game win badges would not appear\n" +
 				"_-_ Force cubes trigger traps before being placed to the floor\n" +

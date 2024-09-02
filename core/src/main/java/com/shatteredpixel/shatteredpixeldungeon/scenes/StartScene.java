@@ -3,7 +3,7 @@
  * Copyright (C) 2012-2015 Oleg Dolya
  *
  * Shattered Pixel Dungeon
- * Copyright (C) 2014-2021 Evan Debenham
+ * Copyright (C) 2014-2024 Evan Debenham
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -28,10 +28,8 @@ import com.shatteredpixel.shatteredpixeldungeon.ShatteredPixelDungeon;
 import com.shatteredpixel.shatteredpixeldungeon.actors.hero.HeroSubClass;
 import com.shatteredpixel.shatteredpixeldungeon.journal.Journal;
 import com.shatteredpixel.shatteredpixeldungeon.messages.Messages;
-import com.shatteredpixel.shatteredpixeldungeon.net.ui.NetIcons;
-import com.shatteredpixel.shatteredpixeldungeon.net.windows.NetWindow;
-import com.shatteredpixel.shatteredpixeldungeon.net.windows.WndNetOptions;
 import com.shatteredpixel.shatteredpixeldungeon.ui.Archs;
+import com.shatteredpixel.shatteredpixeldungeon.ui.Button;
 import com.shatteredpixel.shatteredpixeldungeon.ui.ExitButton;
 import com.shatteredpixel.shatteredpixeldungeon.ui.Icons;
 import com.shatteredpixel.shatteredpixeldungeon.ui.RenderedTextBlock;
@@ -41,12 +39,7 @@ import com.watabou.noosa.BitmapText;
 import com.watabou.noosa.Camera;
 import com.watabou.noosa.Image;
 import com.watabou.noosa.NinePatch;
-import com.watabou.noosa.ui.Button;
-import com.watabou.utils.Bundle;
-import com.watabou.utils.DeviceCompat;
-import com.watabou.utils.FileUtils;
 
-import java.io.IOException;
 import java.util.ArrayList;
 
 public class StartScene extends PixelScene {
@@ -85,24 +78,29 @@ public class StartScene extends PixelScene {
 		
 		ArrayList<GamesInProgress.Info> games = GamesInProgress.checkAll();
 		
-		int slotGap = landscape() ? 5 : 10;
 		int slotCount = Math.min(GamesInProgress.MAX_SLOTS, games.size()+1);
+		int slotGap = 10 - slotCount;
 		int slotsHeight = slotCount*SLOT_HEIGHT + (slotCount-1)* slotGap;
-		
-		float yPos = (h - slotsHeight)/2f;
-		if (landscape()) yPos += 8;
 
+		while (slotsHeight > (h-title.bottom()-2)){
+			slotGap--;
+			slotsHeight -= slotCount-1;
+		}
+		
+		float yPos = (h - slotsHeight + title.bottom() + 2)/2f;
+		
 		for (GamesInProgress.Info game : games) {
-			SaveSlotButton existingGame = new SaveSlotButton(true);
+			SaveSlotButton existingGame = new SaveSlotButton();
 			existingGame.set(game.slot);
 			existingGame.setRect((w - SLOT_WIDTH) / 2f, yPos, SLOT_WIDTH, SLOT_HEIGHT);
 			yPos += SLOT_HEIGHT + slotGap;
 			align(existingGame);
 			add(existingGame);
+			
 		}
 		
 		if (games.size() < GamesInProgress.MAX_SLOTS){
-			SaveSlotButton newGame = new SaveSlotButton(false);
+			SaveSlotButton newGame = new SaveSlotButton();
 			newGame.set(GamesInProgress.firstEmpty());
 			newGame.setRect((w - SLOT_WIDTH) / 2f, yPos, SLOT_WIDTH, SLOT_HEIGHT);
 			yPos += SLOT_HEIGHT + slotGap;
@@ -132,26 +130,17 @@ public class StartScene extends PixelScene {
 		private BitmapText depth;
 		private Image classIcon;
 		private BitmapText level;
-
-		private boolean newButtonSlot;
-		private long seed;
+		
 		private int slot;
 		private boolean newGame;
-		private boolean eligible;
-
-
-		private SaveSlotButton(boolean newButtonSlot){
-			this.newButtonSlot = newButtonSlot;
-		}
-
+		
 		@Override
 		protected void createChildren() {
 			super.createChildren();
 			
 			bg = Chrome.get(Chrome.Type.GEM);
 			add( bg);
-
-
+			
 			name = PixelScene.renderTextBlock(9);
 			add(name);
 		}
@@ -159,17 +148,6 @@ public class StartScene extends PixelScene {
 		public void set( int slot ){
 			this.slot = slot;
 			GamesInProgress.Info info = GamesInProgress.check(slot);
-
-			try {
-				Bundle bundle = FileUtils.bundleFromFile(GamesInProgress.gameFile(slot));
-				seed = bundle.getLong("seed");
-				eligible = ShatteredPixelDungeon.net().connected() &&
-						ShatteredPixelDungeon.net().seed() == seed &&
-						seed != 0;
-			} catch (IOException e) {
-				// e.printStackTrace();
-			}
-
 			newGame = info == null;
 			if (newGame){
 				name.text( Messages.get(StartScene.class, "new"));
@@ -198,7 +176,7 @@ public class StartScene extends PixelScene {
 					hero = new Image(info.heroClass.spritesheet(), 0, 15*info.armorTier, 12, 15);
 					add(hero);
 					
-					steps = new Image(Icons.get(Icons.DEPTH));
+					steps = new Image(Icons.get(Icons.STAIRS));
 					add(steps);
 					depth = new BitmapText(PixelScene.pixelFont);
 					add(depth);
@@ -228,11 +206,19 @@ public class StartScene extends PixelScene {
 					depth.resetColor();
 					level.resetColor();
 				}
+
+				if (info.daily){
+					if (info.dailyReplay){
+						steps.hardlight(1f, 0.5f, 2f);
+					} else {
+						steps.hardlight(0.5f, 1f, 2f);
+					}
+				} else if (!info.customSeed.isEmpty()){
+					steps.hardlight(1f, 1.5f, 0.67f);
+				}
 				
 			}
-
-			if(newButtonSlot) bg.hardlight(eligible ? 0x00FF00: 0xff0000);
-
+			
 			layout();
 		}
 		
@@ -243,7 +229,7 @@ public class StartScene extends PixelScene {
 			bg.x = x;
 			bg.y = y;
 			bg.size( width, height );
-
+			
 			if (hero != null){
 				hero.x = x+8;
 				hero.y = y + (height - hero.height())/2f;
@@ -289,22 +275,7 @@ public class StartScene extends PixelScene {
 				GamesInProgress.curSlot = slot;
 				ShatteredPixelDungeon.switchScene(HeroSelectScene.class);
 			} else {
-				if(eligible){
-					ShatteredPixelDungeon.scene().add( new WndGameInProgress(slot));
-				}else{
-					if(!ShatteredPixelDungeon.net().connected()) NetWindow.error("Not connected", "You must connect before loading save");
-					else NetWindow.runWindow(new WndNetOptions(NetIcons.get(NetIcons.ALERT), "Seed Mismatch","Save seed: "+seed+"\nServer seed: " +ShatteredPixelDungeon.net().seed(), "Delete"){
-						@Override
-						protected void onSelect(int index) {
-							super.onSelect(index);
-							if (index ==0){
-								FileUtils.deleteDir(GamesInProgress.gameFolder(slot));
-								GamesInProgress.setUnknown(slot);
-								ShatteredPixelDungeon.switchNoFade(StartScene.class);
-							}
-						}
-					});
-				}
+				ShatteredPixelDungeon.scene().add( new WndGameInProgress(slot));
 			}
 		}
 	}

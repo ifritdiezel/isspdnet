@@ -3,7 +3,7 @@
  * Copyright (C) 2012-2015 Oleg Dolya
  *
  * Shattered Pixel Dungeon
- * Copyright (C) 2014-2021 Evan Debenham
+ * Copyright (C) 2014-2024 Evan Debenham
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -36,6 +36,7 @@ import com.shatteredpixel.shatteredpixeldungeon.mechanics.Ballistica;
 import com.shatteredpixel.shatteredpixeldungeon.mechanics.ConeAOE;
 import com.shatteredpixel.shatteredpixeldungeon.messages.Messages;
 import com.shatteredpixel.shatteredpixeldungeon.sprites.MissileSprite;
+import com.shatteredpixel.shatteredpixeldungeon.ui.HeroIcon;
 import com.shatteredpixel.shatteredpixeldungeon.utils.GLog;
 import com.watabou.utils.Callback;
 
@@ -68,7 +69,7 @@ public class SpectralBlades extends ArmorAbility {
 
 		Char enemy = findChar(b, hero, 2*hero.pointsInTalent(Talent.PROJECTING_BLADES), targets);
 
-		if (enemy == null){
+		if (enemy == null || !hero.fieldOfView[enemy.pos]){
 			GLog.w(Messages.get(this, "no_target"));
 			return;
 		}
@@ -138,12 +139,10 @@ public class SpectralBlades extends ArmorAbility {
 		for (int cell : path.path){
 			Char ch = Actor.findChar(cell);
 			if (ch != null){
-				if (ch == hero || existingTargets.contains(ch)){
+				if (ch == hero || existingTargets.contains(ch) || ch.alignment == Char.Alignment.ALLY){
 					continue;
-				} else if (ch.alignment != Char.Alignment.ALLY){
-					return ch;
 				} else {
-					return null;
+					return ch;
 				}
 			}
 			if (Dungeon.level.solid[cell]){
@@ -154,6 +153,11 @@ public class SpectralBlades extends ArmorAbility {
 			}
 		}
 		return null;
+	}
+
+	@Override
+	public int icon() {
+		return HeroIcon.SPECTRAL_BLADES;
 	}
 
 	@Override

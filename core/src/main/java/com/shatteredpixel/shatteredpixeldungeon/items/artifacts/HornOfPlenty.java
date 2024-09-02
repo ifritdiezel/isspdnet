@@ -3,7 +3,7 @@
  * Copyright (C) 2012-2015 Oleg Dolya
  *
  * Shattered Pixel Dungeon
- * Copyright (C) 2014-2021 Evan Debenham
+ * Copyright (C) 2014-2024 Evan Debenham
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -28,12 +28,18 @@ import com.shatteredpixel.shatteredpixeldungeon.Dungeon;
 import com.shatteredpixel.shatteredpixeldungeon.Statistics;
 import com.shatteredpixel.shatteredpixeldungeon.actors.buffs.Buff;
 import com.shatteredpixel.shatteredpixeldungeon.actors.buffs.Hunger;
+import com.shatteredpixel.shatteredpixeldungeon.actors.buffs.MagicImmune;
+import com.shatteredpixel.shatteredpixeldungeon.actors.hero.Belongings;
 import com.shatteredpixel.shatteredpixeldungeon.actors.hero.Hero;
 import com.shatteredpixel.shatteredpixeldungeon.actors.hero.Talent;
 import com.shatteredpixel.shatteredpixeldungeon.effects.SpellSprite;
 import com.shatteredpixel.shatteredpixeldungeon.items.Item;
+import com.shatteredpixel.shatteredpixeldungeon.items.bags.Bag;
 import com.shatteredpixel.shatteredpixeldungeon.items.food.Blandfruit;
 import com.shatteredpixel.shatteredpixeldungeon.items.food.Food;
+import com.shatteredpixel.shatteredpixeldungeon.items.food.MeatPie;
+import com.shatteredpixel.shatteredpixeldungeon.items.food.Pasty;
+import com.shatteredpixel.shatteredpixeldungeon.items.food.PhantomMeat;
 import com.shatteredpixel.shatteredpixeldungeon.items.rings.RingOfEnergy;
 import com.shatteredpixel.shatteredpixeldungeon.messages.Messages;
 import com.shatteredpixel.shatteredpixeldungeon.scenes.GameScene;
@@ -55,25 +61,28 @@ public class HornOfPlenty extends Artifact {
 
 		charge = 0;
 		partialCharge = 0;
-		chargeCap = 10 + level();
+		chargeCap = 5 + level()/2;
 
-		defaultAction = AC_EAT;
+		defaultAction = AC_SNACK;
 	}
 	
 	private int storedFoodEnergy = 0;
 
+	public static final String AC_SNACK = "SNACK";
 	public static final String AC_EAT = "EAT";
 	public static final String AC_STORE = "STORE";
-
-	protected WndBag.Mode mode = WndBag.Mode.FOOD;
 
 	@Override
 	public ArrayList<String> actions( Hero hero ) {
 		ArrayList<String> actions = super.actions( hero );
-		if (isEquipped( hero ) && charge > 0)
+		if (hero.buff(MagicImmune.class) != null) return actions;
+		if (isEquipped( hero ) && charge > 0) {
+			actions.add(AC_SNACK);
 			actions.add(AC_EAT);
-		if (isEquipped( hero ) && level() < levelCap && !cursed)
+		}
+		if (isEquipped( hero ) && level() < levelCap && !cursed) {
 			actions.add(AC_STORE);
+		}
 		return actions;
 	}
 
@@ -82,13 +91,15 @@ public class HornOfPlenty extends Artifact {
 
 		super.execute(hero, action);
 
-		if (action.equals(AC_EAT)){
+		if (hero.buff(MagicImmune.class) != null) return;
+
+		if (action.equals(AC_EAT) || action.equals(AC_SNACK)){
 
 			if (!isEquipped(hero)) GLog.i( Messages.get(Artifact.class, "need_to_equip") );
 			else if (charge == 0)  GLog.i( Messages.get(this, "no_food") );
 			else {
 				//consume as much food as it takes to be full, to a minimum of 1
-				int satietyPerCharge = (int) (Hunger.STARVING/10f);
+				int satietyPerCharge = (int) (Hunger.STARVING/5f);
 				if (Dungeon.isChallenged(Challenges.NO_FOOD)){
 					satietyPerCharge /= 3;
 				}
@@ -96,6 +107,12 @@ public class HornOfPlenty extends Artifact {
 				Hunger hunger = Buff.affect(Dungeon.hero, Hunger.class);
 				int chargesToUse = Math.max( 1, hunger.hunger() / satietyPerCharge);
 				if (chargesToUse > charge) chargesToUse = charge;
+
+				//always use 1 charge if snacking
+				if (action.equals(AC_SNACK)){
+					chargesToUse = 1;
+				}
+
 				hunger.satisfy(satietyPerCharge * chargesToUse);
 
 				Statistics.foodEaten++;
@@ -112,7 +129,8 @@ public class HornOfPlenty extends Artifact {
 				if (Dungeon.hero.hasTalent(Talent.IRON_STOMACH)
 						|| Dungeon.hero.hasTalent(Talent.ENERGIZING_MEAL)
 						|| Dungeon.hero.hasTalent(Talent.MYSTICAL_MEAL)
-						|| Dungeon.hero.hasTalent(Talent.INVIGORATING_MEAL)){
+						|| Dungeon.hero.hasTalent(Talent.INVIGORATING_MEAL)
+						|| Dungeon.hero.hasTalent(Talent.FOCUSED_MEAL)){
 					hero.spend(Food.TIME_TO_EAT - 2);
 				} else {
 					hero.spend(Food.TIME_TO_EAT);
@@ -122,10 +140,9 @@ public class HornOfPlenty extends Artifact {
 
 				Badges.validateFoodEaten();
 
-				int oldImage = image;
-				if (charge >= 15)       image = ItemSpriteSheet.ARTIFACT_HORN4;
-				else if (charge >= 10)  image = ItemSpriteSheet.ARTIFACT_HORN3;
-				else if (charge >= 5)   image = ItemSpriteSheet.ARTIFACT_HORN2;
+				if (charge >= 8)        image = ItemSpriteSheet.ARTIFACT_HORN4;
+				else if (charge >= 5)   image = ItemSpriteSheet.ARTIFACT_HORN3;
+				else if (charge >= 2)   image = ItemSpriteSheet.ARTIFACT_HORN2;
 				else                    image = ItemSpriteSheet.ARTIFACT_HORN1;
 
 				updateQuickslot();
@@ -133,7 +150,7 @@ public class HornOfPlenty extends Artifact {
 
 		} else if (action.equals(AC_STORE)){
 
-			GameScene.selectItem(itemSelector, mode, Messages.get(this, "prompt"));
+			GameScene.selectItem(itemSelector);
 
 		}
 	}
@@ -145,9 +162,9 @@ public class HornOfPlenty extends Artifact {
 	
 	@Override
 	public void charge(Hero target, float amount) {
-		if (charge < chargeCap){
+		if (charge < chargeCap && !cursed && target.buff(MagicImmune.class) == null){
 			partialCharge += 0.25f*amount;
-			if (partialCharge >= 1){
+			while (partialCharge >= 1){
 				partialCharge--;
 				charge++;
 				
@@ -156,10 +173,9 @@ public class HornOfPlenty extends Artifact {
 					partialCharge = 0;
 				}
 
-				int oldImage = image;
-				if (charge >= 15)       image = ItemSpriteSheet.ARTIFACT_HORN4;
-				else if (charge >= 10)  image = ItemSpriteSheet.ARTIFACT_HORN3;
-				else if (charge >= 5)   image = ItemSpriteSheet.ARTIFACT_HORN2;
+				if (charge >= 8)        image = ItemSpriteSheet.ARTIFACT_HORN4;
+				else if (charge >= 5)   image = ItemSpriteSheet.ARTIFACT_HORN3;
+				else if (charge >= 2)   image = ItemSpriteSheet.ARTIFACT_HORN2;
 				else                    image = ItemSpriteSheet.ARTIFACT_HORN1;
 
 				updateQuickslot();
@@ -186,13 +202,13 @@ public class HornOfPlenty extends Artifact {
 	@Override
 	public void level(int value) {
 		super.level(value);
-		chargeCap = 10 + level();
+		chargeCap = 5 + level()/2;
 	}
 
 	@Override
 	public Item upgrade() {
 		super.upgrade();
-		chargeCap = 10 + level();
+		chargeCap = 5 + level()/2;
 		return this;
 	}
 	
@@ -200,6 +216,12 @@ public class HornOfPlenty extends Artifact {
 		if (level() >= 10) return;
 		
 		storedFoodEnergy += food.energy;
+		//Pasties and phantom meat are worth two upgrades instead of 1.5, meat pies are worth 4 instead of 3!
+		if (food instanceof Pasty || food instanceof PhantomMeat){
+			storedFoodEnergy += Hunger.HUNGRY/2;
+		} else if (food instanceof MeatPie){
+			storedFoodEnergy += Hunger.HUNGRY;
+		}
 		if (storedFoodEnergy >= Hunger.HUNGRY){
 			int upgrades = storedFoodEnergy / (int)Hunger.HUNGRY;
 			upgrades = Math.min(upgrades, 10 - level());
@@ -227,17 +249,23 @@ public class HornOfPlenty extends Artifact {
 	@Override
 	public void restoreFromBundle(Bundle bundle) {
 		super.restoreFromBundle(bundle);
+
+		//pre-2.0.0 saves
+		if (partialCharge > 1){
+			partialCharge /= Hunger.STARVING/5f;
+		}
+
 		storedFoodEnergy = bundle.getInt(STORED);
 		
-		if (charge >= 15)       image = ItemSpriteSheet.ARTIFACT_HORN4;
-		else if (charge >= 10)  image = ItemSpriteSheet.ARTIFACT_HORN3;
-		else if (charge >= 5)   image = ItemSpriteSheet.ARTIFACT_HORN2;
+		if (charge >= 8)       image = ItemSpriteSheet.ARTIFACT_HORN4;
+		else if (charge >= 5)  image = ItemSpriteSheet.ARTIFACT_HORN3;
+		else if (charge >= 2)   image = ItemSpriteSheet.ARTIFACT_HORN2;
 	}
 
 	public class hornRecharge extends ArtifactBuff{
 
 		public void gainCharge(float levelPortion) {
-			if (cursed) return;
+			if (cursed || target.buff(MagicImmune.class) != null) return;
 			
 			if (charge < chargeCap) {
 
@@ -246,17 +274,19 @@ public class HornOfPlenty extends Artifact {
 				//This means that a standard ration will be recovered in ~5.333 hero levels
 				float chargeGain = Hunger.STARVING * levelPortion * (0.25f + (0.125f*level()));
 				chargeGain *= RingOfEnergy.artifactChargeMultiplier(target);
+
+				//each charge is equal to 1/5 the max hunger value
+				chargeGain /= Hunger.STARVING/5;
 				partialCharge += chargeGain;
 
-				//charge is in increments of 1/10 max hunger value.
-				while (partialCharge >= Hunger.STARVING/10) {
+				//charge is in increments of 1/5 max hunger value.
+				while (partialCharge >= 1) {
 					charge++;
-					partialCharge -= Hunger.STARVING/10;
+					partialCharge -= 1;
 
-					int oldImage = image;
-					if (charge >= 15)       image = ItemSpriteSheet.ARTIFACT_HORN4;
-					else if (charge >= 10)  image = ItemSpriteSheet.ARTIFACT_HORN3;
-					else if (charge >= 5)   image = ItemSpriteSheet.ARTIFACT_HORN2;
+					if (charge >= 8)        image = ItemSpriteSheet.ARTIFACT_HORN4;
+					else if (charge >= 5)   image = ItemSpriteSheet.ARTIFACT_HORN3;
+					else if (charge >= 2)   image = ItemSpriteSheet.ARTIFACT_HORN2;
 					else                    image = ItemSpriteSheet.ARTIFACT_HORN1;
 
 					updateQuickslot();
@@ -266,13 +296,30 @@ public class HornOfPlenty extends Artifact {
 						partialCharge = 0;
 					}
 				}
-			} else
+			} else {
 				partialCharge = 0;
+			}
 		}
 
 	}
 
-	protected static WndBag.Listener itemSelector = new WndBag.Listener() {
+	protected static WndBag.ItemSelector itemSelector = new WndBag.ItemSelector() {
+
+		@Override
+		public String textPrompt() {
+			return Messages.get(HornOfPlenty.class, "prompt");
+		}
+
+		@Override
+		public Class<?extends Bag> preferredBag(){
+			return Belongings.Backpack.class;
+		}
+
+		@Override
+		public boolean itemSelectable(Item item) {
+			return item instanceof Food;
+		}
+
 		@Override
 		public void onSelect( Item item ) {
 			if (item != null && item instanceof Food) {

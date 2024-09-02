@@ -3,7 +3,7 @@
  * Copyright (C) 2012-2015 Oleg Dolya
  *
  * Shattered Pixel Dungeon
- * Copyright (C) 2014-2021 Evan Debenham
+ * Copyright (C) 2014-2024 Evan Debenham
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -22,15 +22,18 @@
 package com.shatteredpixel.shatteredpixeldungeon.items.wands;
 
 import com.shatteredpixel.shatteredpixeldungeon.Assets;
+import com.shatteredpixel.shatteredpixeldungeon.Badges;
 import com.shatteredpixel.shatteredpixeldungeon.Dungeon;
 import com.shatteredpixel.shatteredpixeldungeon.actors.Actor;
 import com.shatteredpixel.shatteredpixeldungeon.actors.Char;
 import com.shatteredpixel.shatteredpixeldungeon.actors.buffs.Barrier;
 import com.shatteredpixel.shatteredpixeldungeon.actors.buffs.Buff;
 import com.shatteredpixel.shatteredpixeldungeon.actors.buffs.Charm;
+import com.shatteredpixel.shatteredpixeldungeon.actors.mobs.Mimic;
 import com.shatteredpixel.shatteredpixeldungeon.actors.mobs.Mob;
 import com.shatteredpixel.shatteredpixeldungeon.effects.Beam;
 import com.shatteredpixel.shatteredpixeldungeon.effects.CellEmitter;
+import com.shatteredpixel.shatteredpixeldungeon.effects.FloatingText;
 import com.shatteredpixel.shatteredpixeldungeon.effects.Speck;
 import com.shatteredpixel.shatteredpixeldungeon.effects.particles.BloodParticle;
 import com.shatteredpixel.shatteredpixeldungeon.effects.particles.ShadowParticle;
@@ -47,12 +50,22 @@ import com.watabou.utils.Callback;
 import com.watabou.utils.PointF;
 import com.watabou.utils.Random;
 
-public class WandOfTransfusion extends Wand {
+public class WandOfTransfusion extends DamageWand {
 
 	{
 		image = ItemSpriteSheet.WAND_TRANSFUSION;
 
 		collisionProperties = Ballistica.PROJECTILE;
+	}
+
+	@Override
+	public int min(int level) {
+		return 3 + level;
+	}
+
+	@Override
+	public int max(int level) {
+		return 6 + 2*level;
 	}
 
 	private boolean freeCharge = false;
@@ -91,7 +104,12 @@ public class WandOfTransfusion extends Wand {
 				ch.HP += healing;
 				
 				ch.sprite.emitter().burst(Speck.factory(Speck.HEALING), 2 + buffedLvl() / 2);
-				ch.sprite.showStatus(CharSprite.POSITIVE, "+%dHP", healing + shielding);
+				if (healing > 0) {
+					ch.sprite.showStatusWithIcon(CharSprite.POSITIVE, Integer.toString(healing), FloatingText.HEALING);
+				}
+				if (shielding > 0){
+					ch.sprite.showStatusWithIcon(CharSprite.POSITIVE, Integer.toString(shielding), FloatingText.SHIELDING);
+				}
 				
 				if (!freeCharge) {
 					damageHero(selfDmg);
@@ -100,7 +118,12 @@ public class WandOfTransfusion extends Wand {
 				}
 
 			//for enemies...
-			} else {
+			//(or for mimics which are hiding, special case)
+			} else if (ch.alignment == Char.Alignment.ENEMY || ch instanceof Mimic) {
+
+				//grant a self-shield, and...
+				Buff.affect(curUser, Barrier.class).setShield((5 + buffedLvl()));
+				curUser.sprite.showStatusWithIcon(CharSprite.POSITIVE, Integer.toString(5+buffedLvl()), FloatingText.SHIELDING);
 				
 				//charms living enemies
 				if (!ch.properties().contains(Char.Property.UNDEAD)) {
@@ -111,13 +134,10 @@ public class WandOfTransfusion extends Wand {
 				
 				//harms the undead
 				} else {
-					ch.damage(Random.NormalIntRange(3 + buffedLvl()/2, 6+buffedLvl()), this);
+					ch.damage(damageRoll(), this);
 					ch.sprite.emitter().start(ShadowParticle.UP, 0.05f, 10 + buffedLvl());
 					Sample.INSTANCE.play(Assets.Sounds.BURNING);
 				}
-				
-				//and grants a self shield
-				Buff.affect(curUser, Barrier.class).setShield((5 + buffedLvl()));
 
 			}
 			
@@ -131,7 +151,8 @@ public class WandOfTransfusion extends Wand {
 		curUser.damage(damage, this);
 
 		if (!curUser.isAlive()){
-			Dungeon.fail( getClass() );
+			Badges.validateDeathFromFriendlyMagic();
+			Dungeon.fail( this );
 			GLog.n( Messages.get(this, "ondeath") );
 		}
 	}
@@ -141,7 +162,9 @@ public class WandOfTransfusion extends Wand {
 		if (defender.buff(Charm.class) != null && defender.buff(Charm.class).object == attacker.id()){
 			//grants a free use of the staff and shields self
 			freeCharge = true;
-			Buff.affect(curUser, Barrier.class).setShield(2*(5 + buffedLvl()));
+			int shieldToGive = Math.round((2*(5 + buffedLvl()))*procChanceMultiplier(attacker));
+			Buff.affect(attacker, Barrier.class).setShield(shieldToGive);
+			attacker.sprite.showStatusWithIcon(CharSprite.POSITIVE, Integer.toString(shieldToGive), FloatingText.SHIELDING);
 			GLog.p( Messages.get(this, "charged") );
 			attacker.sprite.emitter().burst(BloodParticle.BURST, 20);
 		}
@@ -168,9 +191,9 @@ public class WandOfTransfusion extends Wand {
 	public String statsDesc() {
 		int selfDMG = Math.round(Dungeon.hero.HT*0.05f);
 		if (levelKnown)
-			return Messages.get(this, "stats_desc", selfDMG, selfDMG + 3*buffedLvl(), 5+buffedLvl(), 3+buffedLvl()/2, 6+ buffedLvl());
+			return Messages.get(this, "stats_desc", selfDMG, selfDMG + 3*buffedLvl(), 5+buffedLvl(), min(), max());
 		else
-			return Messages.get(this, "stats_desc", selfDMG, selfDMG, 5, 3, 6);
+			return Messages.get(this, "stats_desc", selfDMG, selfDMG, 5, min(0), max(0));
 	}
 
 	private static final String FREECHARGE = "freecharge";

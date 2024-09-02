@@ -3,7 +3,7 @@
  * Copyright (C) 2012-2015 Oleg Dolya
  *
  * Shattered Pixel Dungeon
- * Copyright (C) 2014-2021 Evan Debenham
+ * Copyright (C) 2014-2024 Evan Debenham
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -25,15 +25,17 @@ import com.shatteredpixel.shatteredpixeldungeon.Assets;
 import com.shatteredpixel.shatteredpixeldungeon.Badges;
 import com.shatteredpixel.shatteredpixeldungeon.Dungeon;
 import com.shatteredpixel.shatteredpixeldungeon.actors.Char;
-import com.shatteredpixel.shatteredpixeldungeon.actors.buffs.Barrier;
+import com.shatteredpixel.shatteredpixeldungeon.actors.buffs.ArtifactRecharge;
 import com.shatteredpixel.shatteredpixeldungeon.actors.buffs.Buff;
 import com.shatteredpixel.shatteredpixeldungeon.actors.hero.Hero;
 import com.shatteredpixel.shatteredpixeldungeon.actors.hero.HeroSubClass;
 import com.shatteredpixel.shatteredpixeldungeon.actors.hero.Talent;
+import com.shatteredpixel.shatteredpixeldungeon.actors.mobs.Mob;
 import com.shatteredpixel.shatteredpixeldungeon.effects.particles.ElmoParticle;
+import com.shatteredpixel.shatteredpixeldungeon.items.ArcaneResin;
 import com.shatteredpixel.shatteredpixeldungeon.items.Item;
-import com.shatteredpixel.shatteredpixeldungeon.items.artifacts.Artifact;
 import com.shatteredpixel.shatteredpixeldungeon.items.bags.Bag;
+import com.shatteredpixel.shatteredpixeldungeon.items.bags.MagicalHolster;
 import com.shatteredpixel.shatteredpixeldungeon.items.scrolls.ScrollOfRecharging;
 import com.shatteredpixel.shatteredpixeldungeon.items.wands.Wand;
 import com.shatteredpixel.shatteredpixeldungeon.items.wands.WandOfCorrosion;
@@ -87,8 +89,8 @@ public class MagesStaff extends MeleeWeapon {
 
 	@Override
 	public int max(int lvl) {
-		return  4*(tier+1) +    //8 base damage, down from 10
-				lvl*(tier+1);   //scaling unaffected
+		return  Math.round(3f*(tier+1)) +   //6 base damage, down from 10
+				lvl*(tier+1);               //scaling unaffected
 	}
 
 	public MagesStaff(Wand wand){
@@ -111,8 +113,23 @@ public class MagesStaff extends MeleeWeapon {
 	}
 
 	@Override
+	public String defaultAction() {
+		return AC_ZAP;
+	}
+
+	@Override
 	public void activate( Char ch ) {
-		if(wand != null) wand.charge( ch, STAFF_SCALE_FACTOR );
+		super.activate(ch);
+		applyWandChargeBuff(ch);
+	}
+
+	@Override
+	public int targetingPos(Hero user, int dst) {
+		if (wand != null) {
+			return wand.targetingPos(user, dst);
+		} else {
+			return super.targetingPos(user, dst);
+		}
 	}
 
 	@Override
@@ -123,7 +140,7 @@ public class MagesStaff extends MeleeWeapon {
 		if (action.equals(AC_IMBUE)) {
 
 			curUser = hero;
-			GameScene.selectItem(itemSelector, WndBag.Mode.WAND, Messages.get(this, "prompt"));
+			GameScene.selectItem(itemSelector);
 
 		} else if (action.equals(AC_ZAP)){
 
@@ -139,30 +156,24 @@ public class MagesStaff extends MeleeWeapon {
 	}
 
 	@Override
-	public int buffedLvl() {
+	public int buffedVisiblyUpgraded() {
 		if (wand != null){
-			return Math.max(super.buffedLvl(), wand.buffedLvl());
+			return Math.max(super.buffedVisiblyUpgraded(), wand.buffedVisiblyUpgraded());
 		} else {
-			return super.buffedLvl();
+			return super.buffedVisiblyUpgraded();
 		}
 	}
 
 	@Override
 	public int proc(Char attacker, Char defender, int damage) {
-		if (attacker.buff(Talent.EmpoweredStrikeTracker.class) != null){
-			attacker.buff(Talent.EmpoweredStrikeTracker.class).detach();
-			damage = Math.round( damage * (1f + Dungeon.hero.pointsInTalent(Talent.EMPOWERED_STRIKE)/4f));
-		}
-
-		if (wand.curCharges >= wand.maxCharges && attacker instanceof Hero && Random.Int(5) < ((Hero) attacker).pointsInTalent(Talent.EXCESS_CHARGE)){
-			Buff.affect(attacker, Barrier.class).setShield(buffedLvl()*2);
-		}
-
 		if (attacker instanceof Hero && ((Hero) attacker).hasTalent(Talent.MYSTICAL_CHARGE)){
 			Hero hero = (Hero) attacker;
-			for (Buff b : hero.buffs()){
-				if (b instanceof Artifact.ArtifactBuff) ((Artifact.ArtifactBuff) b).charge(hero, hero.pointsInTalent(Talent.MYSTICAL_CHARGE)/2f);
-			}
+			ArtifactRecharge.chargeArtifacts(hero, hero.pointsInTalent(Talent.MYSTICAL_CHARGE)/2f);
+		}
+
+		Talent.EmpoweredStrikeTracker empoweredStrike = attacker.buff(Talent.EmpoweredStrikeTracker.class);
+		if (empoweredStrike != null){
+			damage = Math.round( damage * (1f + Dungeon.hero.pointsInTalent(Talent.EMPOWERED_STRIKE)/6f));
 		}
 
 		if (wand != null &&
@@ -170,6 +181,13 @@ public class MagesStaff extends MeleeWeapon {
 			if (wand.curCharges < wand.maxCharges) wand.partialCharge += 0.5f;
 			ScrollOfRecharging.charge((Hero)attacker);
 			wand.onHit(this, attacker, defender, damage);
+		}
+
+		if (empoweredStrike != null){
+			if (!empoweredStrike.delayedDetach) empoweredStrike.detach();
+			if (!(defender instanceof Mob) || !((Mob) defender).surprisedBy(attacker)){
+				Sample.INSTANCE.play(Assets.Sounds.HIT_STRONG, 0.75f, 1.2f);
+			}
 		}
 		return super.proc(attacker, defender, damage);
 	}
@@ -180,7 +198,7 @@ public class MagesStaff extends MeleeWeapon {
 		if (owner instanceof Hero
 				&& wand instanceof WandOfDisintegration
 				&& ((Hero)owner).subClass == HeroSubClass.BATTLEMAGE){
-			reach++;
+			reach += Math.round(Wand.procChanceMultiplier(owner));
 		}
 		return reach;
 	}
@@ -188,8 +206,8 @@ public class MagesStaff extends MeleeWeapon {
 	@Override
 	public boolean collect( Bag container ) {
 		if (super.collect(container)) {
-			if (container.owner != null && wand != null) {
-				wand.charge(container.owner, STAFF_SCALE_FACTOR);
+			if (container.owner != null) {
+				applyWandChargeBuff(container.owner);
 			}
 			return true;
 		} else {
@@ -204,13 +222,11 @@ public class MagesStaff extends MeleeWeapon {
 
 	public Item imbueWand(Wand wand, Char owner){
 
-		int oldStaffcharges = this.wand.curCharges;
+		int oldStaffcharges = this.wand != null ? this.wand.curCharges : 0;
 
-		if (owner == Dungeon.hero && Dungeon.hero.hasTalent(Talent.WAND_PRESERVATION)
-				&& Random.Float() < 0.34f + 0.33f*Dungeon.hero.pointsInTalent(Talent.WAND_PRESERVATION)){
-
+		if (owner == Dungeon.hero && Dungeon.hero.hasTalent(Talent.WAND_PRESERVATION)){
 			Talent.WandPreservationCounter counter = Buff.affect(Dungeon.hero, Talent.WandPreservationCounter.class);
-			if (counter.count() < 3) {
+			if (counter.count() < 5 && Random.Float() < 0.34f + 0.33f*Dungeon.hero.pointsInTalent(Talent.WAND_PRESERVATION)){
 				counter.countUp(1);
 				this.wand.level(0);
 				if (!this.wand.collect()) {
@@ -218,22 +234,36 @@ public class MagesStaff extends MeleeWeapon {
 				}
 				GLog.newLine();
 				GLog.p(Messages.get(this, "preserved"));
+			} else {
+				ArcaneResin resin = new ArcaneResin();
+				if (!resin.collect()) {
+					Dungeon.level.drop(resin, owner.pos);
+				}
+				GLog.newLine();
+				GLog.p(Messages.get(this, "preserved_resin"));
 			}
 		}
 
 		this.wand = null;
 
+		wand.resinBonus = 0;
+		wand.updateLevel();
+
 		//syncs the level of the two items.
-		int targetLevel = Math.max(this.level() - (curseInfusionBonus ? 1 : 0), wand.level());
+		int targetLevel = Math.max(this.trueLevel(), wand.trueLevel());
 
 		//if the staff's level is being overridden by the wand, preserve 1 upgrade
-		if (wand.level() >= this.level() && this.level() > (curseInfusionBonus ? 1 : 0)) targetLevel++;
+		if (wand.trueLevel() >= this.trueLevel() && this.trueLevel() > 0) targetLevel++;
 		
 		level(targetLevel);
 		this.wand = wand;
 		updateWand(false);
 		wand.curCharges = Math.min(wand.maxCharges, wand.curCharges+oldStaffcharges);
-		if (owner != null) wand.charge(owner);
+		if (owner != null){
+			applyWandChargeBuff(owner);
+ 		} else if (Dungeon.hero.belongings.contains(this)){
+			applyWandChargeBuff(Dungeon.hero);
+		}
 
 		//This is necessary to reset any particles.
 		//FIXME this is gross, should implement a better way to fully reset quickslot visuals
@@ -257,6 +287,12 @@ public class MagesStaff extends MeleeWeapon {
 	public void gainCharge( float amt, boolean overcharge ){
 		if (wand != null){
 			wand.gainCharge(amt, overcharge);
+		}
+	}
+
+	public void applyWandChargeBuff(Char owner){
+		if (wand != null){
+			wand.charge(owner, STAFF_SCALE_FACTOR);
 		}
 	}
 
@@ -315,8 +351,8 @@ public class MagesStaff extends MeleeWeapon {
 
 		if (wand != null){
 			info += "\n\n" + Messages.get(this, "has_wand", Messages.get(wand, "name"));
-			if (!cursed || !cursedKnown)    info += " " + wand.statsDesc();
-			else                            info += " " + Messages.get(this, "cursed_wand");
+			if ((!cursed && !hasCurseEnchant()) || !cursedKnown)    info += " " + wand.statsDesc();
+			else                                                    info += " " + Messages.get(this, "cursed_wand");
 
 			if (Dungeon.hero.subClass == HeroSubClass.BATTLEMAGE){
 				info += "\n\n" + Messages.get(wand, "bmage_desc");
@@ -367,7 +403,23 @@ public class MagesStaff extends MeleeWeapon {
 		return super.enchant(ench);
 	}
 	
-	private final WndBag.Listener itemSelector = new WndBag.Listener() {
+	private final WndBag.ItemSelector itemSelector = new WndBag.ItemSelector() {
+
+		@Override
+		public String textPrompt() {
+			return Messages.get(MagesStaff.class, "prompt");
+		}
+
+		@Override
+		public Class<?extends Bag> preferredBag(){
+			return MagicalHolster.class;
+		}
+
+		@Override
+		public boolean itemSelectable(Item item) {
+			return item instanceof Wand;
+		}
+
 		@Override
 		public void onSelect( final Item item ) {
 			if (item != null) {
@@ -384,19 +436,20 @@ public class MagesStaff extends MeleeWeapon {
 					applyWand((Wand)item);
 				} else {
 					int newLevel;
-					if (item.level() >= level()){
-						if (level() > 0)    newLevel = item.level() + 1;
-						else                newLevel = item.level();
+					int itemLevel = item.trueLevel();
+					if (itemLevel >= trueLevel()){
+						if (trueLevel() > 0)    newLevel = itemLevel + 1;
+						else                    newLevel = itemLevel;
 					} else {
-						newLevel = level();
+						newLevel = trueLevel();
 					}
 
 					String bodyText = Messages.get(MagesStaff.class, "imbue_desc", newLevel);
-					int preservesLeft = Dungeon.hero.hasTalent(Talent.WAND_PRESERVATION) ? 3 : 0;
+					int preservesLeft = Dungeon.hero.hasTalent(Talent.WAND_PRESERVATION) ? 5 : 0;
 					if (Dungeon.hero.buff(Talent.WandPreservationCounter.class) != null){
 						preservesLeft -= Dungeon.hero.buff(Talent.WandPreservationCounter.class).count();
 					}
-					if (preservesLeft > 0){
+					if (Dungeon.hero.hasTalent(Talent.WAND_PRESERVATION)){
 						int preserveChance = Dungeon.hero.pointsInTalent(Talent.WAND_PRESERVATION) == 1 ? 67 : 100;
 						bodyText += "\n\n" + Messages.get(MagesStaff.class, "imbue_talent", preserveChance, preservesLeft);
 					} else {

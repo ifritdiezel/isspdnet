@@ -3,7 +3,7 @@
  * Copyright (C) 2012-2015 Oleg Dolya
  *
  * Shattered Pixel Dungeon
- * Copyright (C) 2014-2021 Evan Debenham
+ * Copyright (C) 2014-2024 Evan Debenham
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -23,13 +23,16 @@ package com.shatteredpixel.shatteredpixeldungeon.actors.mobs;
 
 import com.shatteredpixel.shatteredpixeldungeon.Dungeon;
 import com.shatteredpixel.shatteredpixeldungeon.actors.Char;
+import com.shatteredpixel.shatteredpixeldungeon.actors.buffs.Burning;
 import com.shatteredpixel.shatteredpixeldungeon.items.Generator;
+import com.shatteredpixel.shatteredpixeldungeon.items.Item;
 import com.shatteredpixel.shatteredpixeldungeon.items.armor.Armor;
+import com.shatteredpixel.shatteredpixeldungeon.items.armor.glyphs.AntiMagic;
+import com.shatteredpixel.shatteredpixeldungeon.items.armor.glyphs.Brimstone;
 import com.shatteredpixel.shatteredpixeldungeon.messages.Messages;
 import com.shatteredpixel.shatteredpixeldungeon.sprites.CharSprite;
 import com.shatteredpixel.shatteredpixeldungeon.sprites.StatueSprite;
 import com.watabou.utils.Bundle;
-import com.watabou.utils.Random;
 
 public class ArmoredStatue extends Statue {
 
@@ -42,13 +45,17 @@ public class ArmoredStatue extends Statue {
 	public ArmoredStatue(){
 		super();
 
-		do {
-			armor = Generator.randomArmor();
-		} while (armor.cursed);
-		armor.inscribe(Armor.Glyph.random());
-
 		//double HP
 		HP = HT = 30 + Dungeon.depth * 10;
+	}
+
+	@Override
+	public void createWeapon(boolean useDecks) {
+		super.createWeapon(useDecks);
+
+		armor = Generator.randomArmor();
+		armor.cursed = false;
+		armor.inscribe(Armor.Glyph.random());
 	}
 
 	private static final String ARMOR	= "armor";
@@ -67,12 +74,43 @@ public class ArmoredStatue extends Statue {
 
 	@Override
 	public int drRoll() {
-		return super.drRoll() + Random.NormalIntRange( armor.DRMin(), armor.DRMax());
+		return super.drRoll() + Char.combatRoll( armor.DRMin(), armor.DRMax());
+	}
+
+	//used in some glyph calculations
+	public Armor armor(){
+		return armor;
+	}
+
+	@Override
+	public boolean isImmune(Class effect) {
+		if (effect == Burning.class
+				&& armor != null
+				&& armor.hasGlyph(Brimstone.class, this)){
+			return true;
+		}
+		return super.isImmune(effect);
 	}
 
 	@Override
 	public int defenseProc(Char enemy, int damage) {
-		return armor.proc(enemy, this, damage);
+		damage = armor.proc(enemy, this, damage);
+		return super.defenseProc(enemy, damage);
+	}
+
+	@Override
+	public void damage(int dmg, Object src) {
+		//TODO improve this when I have proper damage source logic
+		if (armor != null && armor.hasGlyph(AntiMagic.class, this)
+				&& AntiMagic.RESISTS.contains(src.getClass())){
+			dmg -= AntiMagic.drRoll(this, armor.buffedLvl());
+			dmg = Math.max(dmg, 0);
+		}
+
+		super.damage( dmg, src );
+
+		//for the rose status indicator
+		Item.updateQuickslot();
 	}
 
 	@Override
@@ -99,7 +137,7 @@ public class ArmoredStatue extends Statue {
 
 	@Override
 	public void die( Object cause ) {
-		armor.identify();
+		armor.identify(false);
 		Dungeon.level.drop( armor, pos ).sprite.drop();
 		super.die( cause );
 	}

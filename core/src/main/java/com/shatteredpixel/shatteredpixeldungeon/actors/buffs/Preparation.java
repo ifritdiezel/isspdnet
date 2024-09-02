@@ -3,7 +3,7 @@
  * Copyright (C) 2012-2015 Oleg Dolya
  *
  * Shattered Pixel Dungeon
- * Copyright (C) 2014-2021 Evan Debenham
+ * Copyright (C) 2014-2024 Evan Debenham
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -29,16 +29,20 @@ import com.shatteredpixel.shatteredpixeldungeon.actors.hero.HeroAction;
 import com.shatteredpixel.shatteredpixeldungeon.actors.hero.Talent;
 import com.shatteredpixel.shatteredpixeldungeon.actors.mobs.npcs.NPC;
 import com.shatteredpixel.shatteredpixeldungeon.effects.CellEmitter;
-import com.shatteredpixel.shatteredpixeldungeon.effects.Effects;
 import com.shatteredpixel.shatteredpixeldungeon.effects.Speck;
 import com.shatteredpixel.shatteredpixeldungeon.messages.Messages;
 import com.shatteredpixel.shatteredpixeldungeon.scenes.CellSelector;
 import com.shatteredpixel.shatteredpixeldungeon.scenes.GameScene;
+import com.shatteredpixel.shatteredpixeldungeon.scenes.PixelScene;
+import com.shatteredpixel.shatteredpixeldungeon.sprites.CharSprite;
 import com.shatteredpixel.shatteredpixeldungeon.ui.ActionIndicator;
 import com.shatteredpixel.shatteredpixeldungeon.ui.BuffIndicator;
-import com.shatteredpixel.shatteredpixeldungeon.utils.BArray;
+import com.shatteredpixel.shatteredpixeldungeon.ui.HeroIcon;
+import com.watabou.utils.BArray;
 import com.shatteredpixel.shatteredpixeldungeon.utils.GLog;
+import com.watabou.noosa.BitmapText;
 import com.watabou.noosa.Image;
+import com.watabou.noosa.Visual;
 import com.watabou.noosa.audio.Sample;
 import com.watabou.utils.Bundle;
 import com.watabou.utils.PathFinder;
@@ -52,13 +56,14 @@ public class Preparation extends Buff implements ActionIndicator.Action {
 	{
 		//always acts after other buffs, so invisibility effects can process first
 		actPriority = BUFF_PRIO - 1;
+		type = buffType.POSITIVE;
 	}
 	
 	public enum AttackLevel{
-		LVL_1( 1, 0.15f, 1),
-		LVL_2( 3, 0.30f, 1),
-		LVL_3( 5, 0.45f, 2),
-		LVL_4( 9, 0.60f, 3);
+		LVL_1( 1, 0.10f, 1),
+		LVL_2( 3, 0.20f, 1),
+		LVL_3( 5, 0.35f, 2),
+		LVL_4( 9, 0.50f, 3);
 
 		final int turnsReq;
 		final float baseDmgBonus;
@@ -182,25 +187,6 @@ public class Preparation extends Buff implements ActionIndicator.Action {
 	}
 
 	@Override
-	public float iconFadePercent() {
-		AttackLevel level = AttackLevel.getLvl(turnsInvis);
-		if (level == AttackLevel.LVL_4){
-			return 0;
-		} else {
-			float turnsForCur = level.turnsReq;
-			float turnsForNext = AttackLevel.values()[level.ordinal()+1].turnsReq;
-			turnsForNext -= turnsForCur;
-			float turnsToNext = turnsInvis - turnsForCur;
-			return Math.min(1, (turnsForNext - turnsToNext)/(turnsForNext));
-		}
-	}
-
-	@Override
-	public String toString() {
-		return Messages.get(this, "name");
-	}
-	
-	@Override
 	public String desc() {
 		String desc = Messages.get(this, "desc");
 		
@@ -243,12 +229,36 @@ public class Preparation extends Buff implements ActionIndicator.Action {
 		super.storeInBundle(bundle);
 		bundle.put(TURNS, turnsInvis);
 	}
+
+	@Override
+	public String actionName() {
+		return Messages.get(this, "action_name");
+	}
 	
 	@Override
-	public Image getIcon() {
-		Image actionIco = Effects.get(Effects.Type.WOUND);
+	public int actionIcon() {
+		return HeroIcon.PREPARATION;
+	}
+
+	@Override
+	public Visual primaryVisual() {
+		Image actionIco = new HeroIcon(this);
 		tintIcon(actionIco);
 		return actionIco;
+	}
+
+	@Override
+	public Visual secondaryVisual() {
+		BitmapText txt = new BitmapText(PixelScene.pixelFont);
+		txt.text(Integer.toString(Math.min(9, turnsInvis)));
+		txt.hardlight(CharSprite.POSITIVE);
+		txt.measure();
+		return txt;
+	}
+
+	@Override
+	public int indicatorColor() {
+		return 0x444444;
 	}
 	
 	@Override
@@ -262,7 +272,7 @@ public class Preparation extends Buff implements ActionIndicator.Action {
 		public void onSelect(Integer cell) {
 			if (cell == null) return;
 			final Char enemy = Actor.findChar( cell );
-			if (enemy == null || Dungeon.hero.isCharmedBy(enemy) || enemy instanceof NPC || !Dungeon.level.heroFOV[cell]){
+			if (enemy == null || Dungeon.hero.isCharmedBy(enemy) || enemy instanceof NPC || !Dungeon.level.heroFOV[cell] || enemy == Dungeon.hero){
 				GLog.w(Messages.get(Preparation.class, "no_target"));
 			} else {
 
@@ -275,12 +285,14 @@ public class Preparation extends Buff implements ActionIndicator.Action {
 				
 				AttackLevel lvl = AttackLevel.getLvl(turnsInvis);
 
-				PathFinder.buildDistanceMap(Dungeon.hero.pos, BArray.not(Dungeon.level.solid, null), lvl.blinkDistance());
+				PathFinder.buildDistanceMap(Dungeon.hero.pos,BArray.or(Dungeon.level.passable, Dungeon.level.avoid, null), lvl.blinkDistance());
 				int dest = -1;
 				for (int i : PathFinder.NEIGHBOURS8){
 					//cannot blink into a cell that's occupied or impassable, only over them
 					if (Actor.findChar(cell+i) != null)     continue;
-					if (!Dungeon.level.passable[cell+i])    continue;
+					if (!Dungeon.level.passable[cell+i] && !(target.flying && Dungeon.level.avoid[cell+i])) {
+						continue;
+					}
 
 					if (dest == -1 || PathFinder.distance[dest] > PathFinder.distance[cell+i]){
 						dest = cell+i;
@@ -295,6 +307,7 @@ public class Preparation extends Buff implements ActionIndicator.Action {
 
 				if (dest == -1 || PathFinder.distance[dest] == Integer.MAX_VALUE || Dungeon.hero.rooted){
 					GLog.w(Messages.get(Preparation.class, "out_of_reach"));
+					if (Dungeon.hero.rooted) PixelScene.shake( 1, 1f );
 					return;
 				}
 				

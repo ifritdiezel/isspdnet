@@ -3,7 +3,7 @@
  * Copyright (C) 2012-2015 Oleg Dolya
  *
  * Shattered Pixel Dungeon
- * Copyright (C) 2014-2021 Evan Debenham
+ * Copyright (C) 2014-2024 Evan Debenham
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -21,6 +21,7 @@
 
 package com.shatteredpixel.shatteredpixeldungeon.scenes;
 
+import com.badlogic.gdx.Input;
 import com.shatteredpixel.shatteredpixeldungeon.Assets;
 import com.shatteredpixel.shatteredpixeldungeon.Badges;
 import com.shatteredpixel.shatteredpixeldungeon.SPDSettings;
@@ -28,9 +29,13 @@ import com.shatteredpixel.shatteredpixeldungeon.effects.BadgeBanner;
 import com.shatteredpixel.shatteredpixeldungeon.messages.Languages;
 import com.shatteredpixel.shatteredpixeldungeon.messages.Messages;
 import com.shatteredpixel.shatteredpixeldungeon.ui.RenderedTextBlock;
+import com.shatteredpixel.shatteredpixeldungeon.ui.Tooltip;
 import com.shatteredpixel.shatteredpixeldungeon.ui.Window;
+import com.shatteredpixel.shatteredpixeldungeon.utils.Holiday;
 import com.watabou.gltextures.TextureCache;
 import com.watabou.glwrap.Blending;
+import com.watabou.input.ControllerHandler;
+import com.watabou.input.KeyEvent;
 import com.watabou.input.PointerEvent;
 import com.watabou.noosa.BitmapText;
 import com.watabou.noosa.BitmapText.Font;
@@ -38,23 +43,36 @@ import com.watabou.noosa.Camera;
 import com.watabou.noosa.ColorBlock;
 import com.watabou.noosa.Game;
 import com.watabou.noosa.Gizmo;
+import com.watabou.noosa.Image;
 import com.watabou.noosa.Scene;
 import com.watabou.noosa.Visual;
 import com.watabou.noosa.ui.Component;
+import com.watabou.noosa.ui.Cursor;
+import com.watabou.utils.Callback;
+import com.watabou.utils.DeviceCompat;
 import com.watabou.utils.GameMath;
+import com.watabou.utils.PointF;
 import com.watabou.utils.Reflection;
+import com.watabou.utils.Signal;
 
 import java.util.ArrayList;
 
 public class PixelScene extends Scene {
 
-	// Minimum virtual display size for portrait orientation
-	public static final float MIN_WIDTH_P        = 135;
-	public static final float MIN_HEIGHT_P        = 225;
+	// Minimum virtual display size for mobile portrait orientation
+	public static final float MIN_WIDTH_P = 135;
+	public static final float MIN_HEIGHT_P = 225;
 
-	// Minimum virtual display size for landscape orientation
-	public static final float MIN_WIDTH_L        = 240;
-	public static final float MIN_HEIGHT_L        = 160;
+	// Minimum virtual display size for mobile landscape orientation
+	public static final float MIN_WIDTH_L = 240;
+	public static final float MIN_HEIGHT_L = 160;
+
+	// Minimum virtual display size for full desktop UI (landscape only)
+	//TODO maybe include another scale for mixed UI? might make it more accessible to mobile devices
+	// mixed UI has similar requirements to mobile landscape tbh... Maybe just merge them?
+	// mixed UI can possible be used on mobile portrait for tablets though.. Does that happen often?
+	public static final float MIN_WIDTH_FULL = 360;
+	public static final float MIN_HEIGHT_FULL = 200;
 
 	public static int defaultZoom = 0;
 	public static int maxDefaultZoom = 0;
@@ -67,6 +85,10 @@ public class PixelScene extends Scene {
 	//stylized 3x5 bitmapped pixel font. Only latin characters supported.
 	public static BitmapText.Font pixelFont;
 
+	protected boolean inGameScene = false;
+
+	private Signal.Listener<KeyEvent> fullscreenListener;
+
 	@Override
 	public void create() {
 
@@ -74,13 +96,27 @@ public class PixelScene extends Scene {
 
 		GameScene.scene = null;
 
-		float minWidth, minHeight;
-		if (landscape()) {
+		//flush the texture cache whenever moving from ingame to menu, helps reduce memory load
+		if (!inGameScene && InterlevelScene.lastRegion != -1){
+			InterlevelScene.lastRegion = -1;
+			TextureCache.clear();
+			//good time to clear holiday cache as well
+			Holiday.clearCachedHoliday();
+		}
+
+		float minWidth, minHeight, scaleFactor;
+		if (SPDSettings.interfaceSize() > 0){
+			minWidth = MIN_WIDTH_FULL;
+			minHeight = MIN_HEIGHT_FULL;
+			scaleFactor = 3.75f;
+		} else if (landscape()) {
 			minWidth = MIN_WIDTH_L;
 			minHeight = MIN_HEIGHT_L;
+			scaleFactor = 2.5f;
 		} else {
 			minWidth = MIN_WIDTH_P;
 			minHeight = MIN_HEIGHT_P;
+			scaleFactor = 2.5f;
 		}
 
 		maxDefaultZoom = (int)Math.min(Game.width/minWidth, Game.height/minHeight);
@@ -88,7 +124,11 @@ public class PixelScene extends Scene {
 		defaultZoom = SPDSettings.scale();
 
 		if (defaultZoom < Math.ceil( Game.density * 2 ) || defaultZoom > maxDefaultZoom){
-			defaultZoom = (int)GameMath.gate(2, (int)Math.ceil( Game.density * 2.5 ), maxDefaultZoom);
+			defaultZoom = (int)GameMath.gate(2, (int)Math.ceil( Game.density * scaleFactor ), maxDefaultZoom);
+
+			if (SPDSettings.interfaceSize() > 0 && defaultZoom < (maxDefaultZoom+1)/2){
+				defaultZoom = (maxDefaultZoom+1)/2;
+			}
 		}
 
 		minZoom = 1;
@@ -100,15 +140,11 @@ public class PixelScene extends Scene {
 		uiCamera = Camera.createFullscreen( uiZoom );
 		Camera.add( uiCamera );
 
-		if (pixelFont == null) {
-
-			// 3x5 (6)
-			pixelFont = Font.colorMarked(
-				TextureCache.get( Assets.Fonts.PIXELFONT), 0x00000000, BitmapText.Font.LATIN_FULL );
-			pixelFont.baseLine = 6;
-			pixelFont.tracking = -1;
-			
-		}
+		// 3x5 (6)
+		pixelFont = Font.colorMarked(
+			TextureCache.get( Assets.Fonts.PIXELFONT), 0x00000000, BitmapText.Font.LATIN_FULL );
+		pixelFont.baseLine = 6;
+		pixelFont.tracking = -1;
 		
 		//set up the texture size which rendered text will use for any new glyphs.
 		int renderedTextPageSize;
@@ -126,9 +162,116 @@ public class PixelScene extends Scene {
 			renderedTextPageSize *= 2;
 		}
 		Game.platform.setupFontGenerators(renderedTextPageSize, SPDSettings.systemFont());
-		
+
+		Tooltip.resetLastUsedTime();
+
+		Cursor.setCustomCursor(Cursor.Type.DEFAULT, defaultZoom);
+
 	}
-	
+
+	@Override
+	public void update() {
+		//we create this here so that it is last in the scene
+		if (DeviceCompat.isDesktop() && fullscreenListener == null){
+			KeyEvent.addKeyListener(fullscreenListener = new Signal.Listener<KeyEvent>() {
+
+				private boolean alt;
+				private boolean enter;
+
+				@Override
+				public boolean onSignal(KeyEvent keyEvent) {
+
+					//we don't use keybindings for these as we want the user to be able to
+					// bind these keys to other actions when pressed individually
+					if (keyEvent.code == Input.Keys.ALT_RIGHT){
+						alt = keyEvent.pressed;
+					} else if (keyEvent.code == Input.Keys.ENTER){
+						enter = keyEvent.pressed;
+					}
+
+					if (alt && enter){
+						SPDSettings.fullscreen(!SPDSettings.fullscreen());
+						return true;
+					}
+
+					return false;
+				}
+			});
+		}
+
+		super.update();
+		//20% deadzone
+		if (!Cursor.isCursorCaptured()) {
+			if (Math.abs(ControllerHandler.rightStickPosition.x) >= 0.2f
+					|| Math.abs(ControllerHandler.rightStickPosition.y) >= 0.2f) {
+				if (!ControllerHandler.controllerPointerActive()) {
+					ControllerHandler.setControllerPointer(true);
+				}
+
+				int sensitivity = SPDSettings.controllerPointerSensitivity() * 100;
+
+				//cursor moves 100xsens scaled pixels per second at full speed
+				//35x at 50% movement, ~9x at 20% deadzone threshold
+				float xMove = (float) Math.pow(Math.abs(ControllerHandler.rightStickPosition.x), 1.5);
+				if (ControllerHandler.rightStickPosition.x < 0) xMove = -xMove;
+
+				float yMove = (float) Math.pow(Math.abs(ControllerHandler.rightStickPosition.y), 1.5);
+				if (ControllerHandler.rightStickPosition.y < 0) yMove = -yMove;
+
+				PointF virtualCursorPos = ControllerHandler.getControllerPointerPos();
+				virtualCursorPos.x += defaultZoom * sensitivity * Game.elapsed * xMove;
+				virtualCursorPos.y += defaultZoom * sensitivity * Game.elapsed * yMove;
+
+				PointF cameraShift = new PointF();
+
+				if (virtualCursorPos.x < 0){
+					cameraShift.x = virtualCursorPos.x;
+					virtualCursorPos.x = 0;
+				} else if (virtualCursorPos.x > Camera.main.screenWidth()){
+					cameraShift.x = (virtualCursorPos.x - Camera.main.screenWidth());
+					virtualCursorPos.x = Camera.main.screenWidth();
+				}
+
+				if (virtualCursorPos.y < 0){
+					cameraShift.y = virtualCursorPos.y;
+					virtualCursorPos.y = 0;
+				} else if (virtualCursorPos.y > Camera.main.screenHeight()){
+					cameraShift.y = (virtualCursorPos.y - Camera.main.screenHeight());
+					virtualCursorPos.y = Camera.main.screenHeight();
+				}
+
+				cameraShift.invScale(Camera.main.zoom);
+				cameraShift.x *= Camera.main.edgeScroll.x;
+				cameraShift.y *= Camera.main.edgeScroll.y;
+				if (cameraShift.length() > 0){
+					Camera.main.shift(cameraShift);
+				}
+				ControllerHandler.updateControllerPointer(virtualCursorPos, true);
+			}
+		}
+	}
+
+	private Image cursor = null;
+
+	@Override
+	public synchronized void draw() {
+		super.draw();
+
+		//cursor is separate from the rest of the scene, always appears above
+		if (ControllerHandler.controllerPointerActive()){
+			if (cursor == null){
+				cursor = new Image(Cursor.Type.CONTROLLER.file);
+			}
+
+			PointF virtualCursorPos = ControllerHandler.getControllerPointerPos();
+			cursor.x = (virtualCursorPos.x / defaultZoom) - cursor.width()/2f;
+			cursor.y = (virtualCursorPos.y / defaultZoom) - cursor.height()/2f;
+			cursor.camera = uiCamera;
+			align(cursor);
+			cursor.draw();
+		}
+	}
+
 	//FIXME this system currently only works for a subset of windows
 	private static ArrayList<Class<?extends Window>> savedWindows = new ArrayList<>();
 	private static Class<?extends PixelScene> savedClass = null;
@@ -162,7 +305,18 @@ public class PixelScene extends Scene {
 	public void destroy() {
 		super.destroy();
 		PointerEvent.clearListeners();
+		if (fullscreenListener != null){
+			KeyEvent.removeKeyListener(fullscreenListener);
+		}
+		if (cursor != null){
+			cursor.destroy();
+		}
 	}
+
+	public static boolean landscape(){
+		return SPDSettings.interfaceSize() > 0 || Game.width > Game.height;
+	}
+
 
 	public static RenderedTextBlock renderTextBlock(int size ){
 		return renderTextBlock("", size);
@@ -210,12 +364,33 @@ public class PixelScene extends Scene {
 	}
 	
 	public static void showBadge( Badges.Badge badge ) {
-		BadgeBanner banner = BadgeBanner.show( badge.image );
-		banner.camera = uiCamera;
-		banner.x = align( banner.camera, (banner.camera.width - banner.width) / 2 );
-		banner.y = align( banner.camera, (banner.camera.height - banner.height) / 3 );
-		Scene s = Game.scene();
-		if (s != null) s.add( banner );
+		Game.runOnRenderThread(new Callback() {
+			@Override
+			public void call() {
+				Scene s = Game.scene();
+				if (s != null) {
+					BadgeBanner banner = BadgeBanner.show(badge.image);
+					s.add(banner);
+					float offset = Camera.main.centerOffset.y;
+
+					int left = uiCamera.width/2 - BadgeBanner.SIZE/2;
+					left -= (BadgeBanner.SIZE * BadgeBanner.DEFAULT_SCALE * (BadgeBanner.showing.size()-1))/2;
+					for (int i = 0; i < BadgeBanner.showing.size(); i++){
+						banner = BadgeBanner.showing.get(i);
+						banner.camera = uiCamera;
+						banner.x = align(banner.camera, left);
+						banner.y = align(uiCamera, (uiCamera.height - banner.height) / 2 - banner.height / 2 - 16 - offset);
+						left += BadgeBanner.SIZE * BadgeBanner.DEFAULT_SCALE;
+					}
+
+				}
+			}
+		});
+	}
+	
+	public static void shake( float magnitude, float duration){
+		magnitude *= SPDSettings.screenShake();
+		Camera.main.shake(magnitude, duration);
 	}
 	
 	protected static class Fader extends ColorBlock {
@@ -225,6 +400,8 @@ public class PixelScene extends Scene {
 		private boolean light;
 		
 		private float time;
+
+		private static Fader INSTANCE;
 		
 		public Fader( int color, boolean light ) {
 			super( uiCamera.width, uiCamera.height, color );
@@ -235,6 +412,11 @@ public class PixelScene extends Scene {
 			
 			alpha( 1f );
 			time = FADE_TIME;
+
+			if (INSTANCE != null){
+				INSTANCE.killAndErase();
+			}
+			INSTANCE = this;
 		}
 		
 		@Override
@@ -245,6 +427,10 @@ public class PixelScene extends Scene {
 			if ((time -= Game.elapsed) <= 0) {
 				alpha( 0f );
 				parent.remove( this );
+				destroy();
+				if (INSTANCE == this) {
+					INSTANCE = null;
+				}
 			} else {
 				alpha( time / FADE_TIME );
 			}

@@ -3,7 +3,7 @@
  * Copyright (C) 2012-2015 Oleg Dolya
  *
  * Shattered Pixel Dungeon
- * Copyright (C) 2014-2021 Evan Debenham
+ * Copyright (C) 2014-2024 Evan Debenham
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -30,7 +30,6 @@ import com.shatteredpixel.shatteredpixeldungeon.mechanics.ShadowCaster;
 import com.shatteredpixel.shatteredpixeldungeon.sprites.ItemSpriteSheet;
 import com.watabou.noosa.audio.Sample;
 import com.watabou.utils.Point;
-import com.watabou.utils.Random;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -42,16 +41,13 @@ public class StoneOfDisarming extends Runestone {
 	
 	{
 		image = ItemSpriteSheet.STONE_DISARM;
-
-		//so traps do not activate before the effect
-		pressesCell = false;
 	}
 
 	@Override
 	protected void activate(final int cell) {
 		boolean[] FOV = new boolean[Dungeon.level.length()];
 		Point c = Dungeon.level.cellToPoint(cell);
-		ShadowCaster.castShadow(c.x, c.y, FOV, Dungeon.level.losBlocking, DIST);
+		ShadowCaster.castShadow(c.x, c.y, Dungeon.level.width(), FOV, Dungeon.level.losBlocking, DIST);
 		
 		int sX = Math.max(0, c.x - DIST);
 		int eX = Math.min(Dungeon.level.width()-1, c.x + DIST);
@@ -76,7 +72,8 @@ public class StoneOfDisarming extends Runestone {
 				curr++;
 			}
 		}
-		
+
+		Collections.shuffle(disarmCandidates);
 		Collections.sort(disarmCandidates, new Comparator<Trap>() {
 			@Override
 			public int compare(Trap o1, Trap o2) {
@@ -84,7 +81,7 @@ public class StoneOfDisarming extends Runestone {
 				if (diff < 0){
 					return -1;
 				} else if (diff == 0){
-					return Random.Int(2) == 0 ? -1 : 1;
+					return 0;
 				} else {
 					return 1;
 				}

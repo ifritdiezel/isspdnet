@@ -1,3 +1,24 @@
+/*
+ * Pixel Dungeon
+ * Copyright (C) 2012-2015 Oleg Dolya
+ *
+ * Shattered Pixel Dungeon
+ * Copyright (C) 2014-2024 Evan Debenham
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>
+ */
+
 package com.shatteredpixel.shatteredpixeldungeon.actors.hero.abilities;
 
 import com.shatteredpixel.shatteredpixeldungeon.Assets;
@@ -5,7 +26,10 @@ import com.shatteredpixel.shatteredpixeldungeon.Dungeon;
 import com.shatteredpixel.shatteredpixeldungeon.actors.Actor;
 import com.shatteredpixel.shatteredpixeldungeon.actors.Char;
 import com.shatteredpixel.shatteredpixeldungeon.actors.buffs.Adrenaline;
+import com.shatteredpixel.shatteredpixeldungeon.actors.buffs.AllyBuff;
+import com.shatteredpixel.shatteredpixeldungeon.actors.buffs.AscensionChallenge;
 import com.shatteredpixel.shatteredpixeldungeon.actors.buffs.Buff;
+import com.shatteredpixel.shatteredpixeldungeon.actors.buffs.ChampionEnemy;
 import com.shatteredpixel.shatteredpixeldungeon.actors.buffs.Invisibility;
 import com.shatteredpixel.shatteredpixeldungeon.actors.hero.Hero;
 import com.shatteredpixel.shatteredpixeldungeon.actors.hero.Talent;
@@ -14,10 +38,12 @@ import com.shatteredpixel.shatteredpixeldungeon.actors.mobs.Rat;
 import com.shatteredpixel.shatteredpixeldungeon.effects.CellEmitter;
 import com.shatteredpixel.shatteredpixeldungeon.effects.Speck;
 import com.shatteredpixel.shatteredpixeldungeon.items.armor.ClassArmor;
+import com.shatteredpixel.shatteredpixeldungeon.items.artifacts.MasterThievesArmband;
 import com.shatteredpixel.shatteredpixeldungeon.items.scrolls.ScrollOfTeleportation;
 import com.shatteredpixel.shatteredpixeldungeon.messages.Messages;
 import com.shatteredpixel.shatteredpixeldungeon.scenes.GameScene;
 import com.shatteredpixel.shatteredpixeldungeon.sprites.RatSprite;
+import com.shatteredpixel.shatteredpixeldungeon.ui.HeroIcon;
 import com.shatteredpixel.shatteredpixeldungeon.ui.TargetHealthIndicator;
 import com.shatteredpixel.shatteredpixeldungeon.utils.GLog;
 import com.watabou.noosa.audio.Sample;
@@ -26,6 +52,7 @@ import com.watabou.utils.PathFinder;
 import com.watabou.utils.Random;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 
 public class Ratmogrify extends ArmorAbility {
 
@@ -33,9 +60,17 @@ public class Ratmogrify extends ArmorAbility {
 		baseChargeUse = 50f;
 	}
 
+	//this is sort of hacky, but we need it to know when to use alternate name/icon for heroic energy
+	public static boolean useRatroicEnergy = false;
+
 	@Override
 	public String targetingPrompt() {
 		return Messages.get(this, "prompt");
+	}
+
+	@Override
+	public int targetedPos(Char user, int dst) {
+		return dst;
 	}
 
 	@Override
@@ -47,7 +82,7 @@ public class Ratmogrify extends ArmorAbility {
 
 		Char ch = Actor.findChar(target);
 
-		if (ch == null) {
+		if (ch == null || !Dungeon.level.heroFOV[target]) {
 			GLog.w(Messages.get(this, "no_target"));
 			return;
 		} else if (ch == hero){
@@ -72,6 +107,7 @@ public class Ratmogrify extends ArmorAbility {
 					Rat rat = new Rat();
 					rat.alignment = Char.Alignment.ALLY;
 					rat.state = rat.HUNTING;
+					Buff.affect(rat, AscensionChallenge.AscensionBuffBlocker.class);
 					GameScene.add( rat );
 					ScrollOfTeleportation.appear( rat, spawnPoints.get( index ) );
 
@@ -103,9 +139,29 @@ public class Ratmogrify extends ArmorAbility {
 			rat.setup((Mob)ch);
 			rat.pos = ch.pos;
 
+			//preserve champion enemy buffs
+			HashSet<ChampionEnemy> champBuffs = ch.buffs(ChampionEnemy.class);
+			for (ChampionEnemy champ : champBuffs){
+				if (ch.remove(champ)) {
+					ch.sprite.clearAura();
+				}
+			}
+
+			MasterThievesArmband.StolenTracker stealTracker = ch.buff(MasterThievesArmband.StolenTracker.class);
+			if (stealTracker != null){
+				ch.remove(stealTracker);
+			}
+
 			Actor.remove( ch );
 			ch.sprite.killAndErase();
 			Dungeon.level.mobs.remove(ch);
+
+			for (ChampionEnemy champ : champBuffs){
+				ch.add(champ);
+			}
+			if (stealTracker != null) {
+				ch.add(stealTracker);
+			}
 
 			GameScene.add(rat);
 
@@ -114,6 +170,11 @@ public class Ratmogrify extends ArmorAbility {
 			Sample.INSTANCE.play(Assets.Sounds.PUFF);
 
 			Dungeon.level.occupyCell(rat);
+
+			//for rare cases where a buff was keeping a mob alive (e.g. gnoll brutes)
+			if (!rat.isAlive()){
+				rat.die(this);
+			}
 		}
 
 		armor.charge -= chargeUse(hero);
@@ -121,6 +182,11 @@ public class Ratmogrify extends ArmorAbility {
 		Invisibility.dispel();
 		hero.spendAndNext(Actor.TICK);
 
+	}
+
+	@Override
+	public int icon() {
+		return HeroIcon.RATMOGRIFY;
 	}
 
 	@Override
@@ -133,7 +199,8 @@ public class Ratmogrify extends ArmorAbility {
 		{
 			spriteClass = RatSprite.class;
 
-			maxLvl = -2;
+			//always false, as we derive stats from what we are transmogging from (which was already added)
+			firstAdded = false;
 		}
 
 		private Mob original;
@@ -148,6 +215,7 @@ public class Ratmogrify extends ArmorAbility {
 			defenseSkill = original.defenseSkill;
 
 			EXP = original.EXP;
+			maxLvl = original.maxLvl;
 
 			if (original.state == original.SLEEPING) {
 				state = SLEEPING;
@@ -159,9 +227,45 @@ public class Ratmogrify extends ArmorAbility {
 
 		}
 
+		public Mob getOriginal(){
+			if (original != null) {
+				original.HP = HP;
+				original.pos = pos;
+			}
+			return original;
+		}
+
+		private float timeLeft = 6f;
+
+		@Override
+		protected boolean act() {
+			if (timeLeft <= 0){
+				Mob original = getOriginal();
+				this.original = null;
+				original.clearTime();
+				GameScene.add(original);
+
+				EXP = 0;
+				destroy();
+				sprite.killAndErase();
+				CellEmitter.get(original.pos).burst(Speck.factory(Speck.WOOL), 4);
+				Sample.INSTANCE.play(Assets.Sounds.PUFF);
+				return true;
+			} else {
+				return super.act();
+			}
+		}
+
+		@Override
+		protected void spend(float time) {
+			if (!allied) timeLeft -= time;
+			super.spend(time);
+		}
+
 		public void makeAlly() {
 			allied = true;
 			alignment = Alignment.ALLY;
+			timeLeft = Float.POSITIVE_INFINITY;
 		}
 
 		public int attackSkill(Char target) {
@@ -176,7 +280,7 @@ public class Ratmogrify extends ArmorAbility {
 		public int damageRoll() {
 			int damage = original.damageRoll();
 			if (!allied && Dungeon.hero.hasTalent(Talent.RATSISTANCE)){
-				damage = Math.round(damage * (1f - .1f*Dungeon.hero.pointsInTalent(Talent.RATSISTANCE)));
+				damage *= Math.pow(0.9f, Dungeon.hero.pointsInTalent(Talent.RATSISTANCE));
 			}
 			return damage;
 		}
@@ -187,8 +291,18 @@ public class Ratmogrify extends ArmorAbility {
 		}
 
 		@Override
+		public void rollToDropLoot() {
+			original.pos = pos;
+			original.rollToDropLoot();
+		}
+
+		@Override
 		public String name() {
 			return Messages.get(this, "name", original.name());
+		}
+
+		{
+			immunities.add(AllyBuff.class);
 		}
 
 		private static final String ORIGINAL = "original";

@@ -3,7 +3,7 @@
  * Copyright (C) 2012-2015 Oleg Dolya
  *
  * Shattered Pixel Dungeon
- * Copyright (C) 2014-2021 Evan Debenham
+ * Copyright (C) 2014-2024 Evan Debenham
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -25,9 +25,11 @@ import com.shatteredpixel.shatteredpixeldungeon.Assets;
 import com.shatteredpixel.shatteredpixeldungeon.Dungeon;
 import com.shatteredpixel.shatteredpixeldungeon.actors.Actor;
 import com.shatteredpixel.shatteredpixeldungeon.actors.Char;
+import com.shatteredpixel.shatteredpixeldungeon.actors.buffs.AllyBuff;
 import com.shatteredpixel.shatteredpixeldungeon.actors.buffs.Blindness;
 import com.shatteredpixel.shatteredpixeldungeon.actors.buffs.BlobImmunity;
 import com.shatteredpixel.shatteredpixeldungeon.actors.buffs.Buff;
+import com.shatteredpixel.shatteredpixeldungeon.actors.buffs.Cripple;
 import com.shatteredpixel.shatteredpixeldungeon.actors.buffs.Invisibility;
 import com.shatteredpixel.shatteredpixeldungeon.actors.hero.Hero;
 import com.shatteredpixel.shatteredpixeldungeon.actors.hero.Talent;
@@ -40,6 +42,7 @@ import com.shatteredpixel.shatteredpixeldungeon.items.scrolls.ScrollOfTeleportat
 import com.shatteredpixel.shatteredpixeldungeon.messages.Messages;
 import com.shatteredpixel.shatteredpixeldungeon.scenes.GameScene;
 import com.shatteredpixel.shatteredpixeldungeon.sprites.MobSprite;
+import com.shatteredpixel.shatteredpixeldungeon.ui.HeroIcon;
 import com.shatteredpixel.shatteredpixeldungeon.utils.GLog;
 import com.watabou.noosa.TextureFilm;
 import com.watabou.utils.Bundle;
@@ -119,6 +122,11 @@ public class SpiritHawk extends ArmorAbility {
 	}
 
 	@Override
+	public int icon() {
+		return HeroIcon.SPIRIT_HAWK;
+	}
+
+	@Override
 	public Talent[] talents() {
 		return new Talent[]{Talent.EAGLE_EYE, Talent.GO_FOR_THE_EYES, Talent.SWIFT_SPIRIT, Talent.HEROIC_ENERGY};
 	}
@@ -138,7 +146,7 @@ public class SpiritHawk extends ArmorAbility {
 			spriteClass = HawkSprite.class;
 
 			HP = HT = 10;
-			defenseSkill = 50;
+			defenseSkill = 60;
 
 			flying = true;
 			viewDistance = (int)GameMath.gate(6, 6+Dungeon.hero.pointsInTalent(Talent.EAGLE_EYE), 8);
@@ -146,19 +154,21 @@ public class SpiritHawk extends ArmorAbility {
 			attacksAutomatically = false;
 
 			immunities.addAll(new BlobImmunity().immunities());
+			immunities.add(AllyBuff.class);
 		}
 
 		@Override
 		public int attackSkill(Char target) {
-			return 50;
+			return 60;
 		}
 
 		private int dodgesUsed = 0;
-		private float timeRemaining = 50f;
+		private float timeRemaining = 100f;
 
 		@Override
 		public int defenseSkill(Char enemy) {
-			if (dodgesUsed < Dungeon.hero.pointsInTalent(Talent.SWIFT_SPIRIT)){
+			if (Dungeon.hero.hasTalent(Talent.SWIFT_SPIRIT) &&
+					dodgesUsed < 2*Dungeon.hero.pointsInTalent(Talent.SWIFT_SPIRIT)) {
 				dodgesUsed++;
 				return Char.INFINITE_EVASION;
 			}
@@ -167,14 +177,29 @@ public class SpiritHawk extends ArmorAbility {
 
 		@Override
 		public int damageRoll() {
-			return Random.NormalIntRange(5, 10);
+			return Char.combatRoll(5, 10);
 		}
 
 		@Override
 		public int attackProc(Char enemy, int damage) {
 			damage = super.attackProc( enemy, damage );
-			if (Dungeon.hero.hasTalent(Talent.GO_FOR_THE_EYES)) {
-				Buff.prolong( enemy, Blindness.class, 1 + Dungeon.hero.pointsInTalent(Talent.GO_FOR_THE_EYES) );
+			switch (Dungeon.hero.pointsInTalent(Talent.GO_FOR_THE_EYES)){
+				case 1:
+					Buff.prolong( enemy, Blindness.class, 2);
+					break;
+				case 2:
+					Buff.prolong( enemy, Blindness.class, 5);
+					break;
+				case 3:
+					Buff.prolong( enemy, Blindness.class, 5);
+					Buff.prolong( enemy, Cripple.class, 2);
+					break;
+				case 4:
+					Buff.prolong( enemy, Blindness.class, 5);
+					Buff.prolong( enemy, Cripple.class, 5);
+					break;
+				default:
+					//do nothing
 			}
 
 			return damage;
@@ -184,9 +209,10 @@ public class SpiritHawk extends ArmorAbility {
 		protected boolean act() {
 			if (timeRemaining <= 0){
 				die(null);
+				Dungeon.hero.interrupt();
 				return true;
 			}
-			viewDistance = (int)GameMath.gate(6, 6+Dungeon.hero.pointsInTalent(Talent.EAGLE_EYE), 8);
+			viewDistance = 6+Dungeon.hero.pointsInTalent(Talent.EAGLE_EYE);
 			baseSpeed = 2f + Dungeon.hero.pointsInTalent(Talent.SWIFT_SPIRIT)/2f;
 			boolean result = super.act();
 			Dungeon.level.updateFieldOfView( this, fieldOfView );
@@ -208,6 +234,12 @@ public class SpiritHawk extends ArmorAbility {
 		}
 
 		@Override
+		public void defendPos(int cell) {
+			GLog.i(Messages.get(this, "direct_defend"));
+			super.defendPos(cell);
+		}
+
+		@Override
 		public void followHero() {
 			GLog.i(Messages.get(this, "direct_follow"));
 			super.followHero();
@@ -222,8 +254,8 @@ public class SpiritHawk extends ArmorAbility {
 		@Override
 		public String description() {
 			String message = Messages.get(this, "desc", (int)timeRemaining);
-			if (dodgesUsed < Dungeon.hero.pointsInTalent(Talent.SWIFT_SPIRIT)){
-				message += "\n" + Messages.get(this, "desc_dodges", (Dungeon.hero.pointsInTalent(Talent.SWIFT_SPIRIT) - dodgesUsed));
+			if (dodgesUsed < 2*Dungeon.hero.pointsInTalent(Talent.SWIFT_SPIRIT)){
+				message += "\n" + Messages.get(this, "desc_dodges", (2*Dungeon.hero.pointsInTalent(Talent.SWIFT_SPIRIT) - dodgesUsed));
 			}
 			return message;
 		}

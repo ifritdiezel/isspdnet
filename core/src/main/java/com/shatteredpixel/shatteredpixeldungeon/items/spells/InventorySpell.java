@@ -3,7 +3,7 @@
  * Copyright (C) 2012-2015 Oleg Dolya
  *
  * Shattered Pixel Dungeon
- * Copyright (C) 2014-2021 Evan Debenham
+ * Copyright (C) 2014-2024 Evan Debenham
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -24,26 +24,51 @@ package com.shatteredpixel.shatteredpixeldungeon.items.spells;
 import com.shatteredpixel.shatteredpixeldungeon.Assets;
 import com.shatteredpixel.shatteredpixeldungeon.actors.buffs.Invisibility;
 import com.shatteredpixel.shatteredpixeldungeon.actors.hero.Hero;
+import com.shatteredpixel.shatteredpixeldungeon.actors.hero.Talent;
 import com.shatteredpixel.shatteredpixeldungeon.items.Item;
+import com.shatteredpixel.shatteredpixeldungeon.items.bags.Bag;
 import com.shatteredpixel.shatteredpixeldungeon.messages.Messages;
 import com.shatteredpixel.shatteredpixeldungeon.scenes.GameScene;
 import com.shatteredpixel.shatteredpixeldungeon.windows.WndBag;
 import com.watabou.noosa.audio.Sample;
+import com.watabou.utils.Random;
 
 public abstract class InventorySpell extends Spell {
 	
-	protected String inventoryTitle = Messages.get(this, "inv_title");
-	protected WndBag.Mode mode = WndBag.Mode.ALL;
-	
 	@Override
 	protected void onCast(Hero hero) {
-		curItem = detach( hero.belongings.backpack );
-		GameScene.selectItem( itemSelector, mode, inventoryTitle );
+		GameScene.selectItem( itemSelector );
+	}
+
+	private String inventoryTitle(){
+		return Messages.get(this, "inv_title");
+	}
+
+	protected Class<?extends Bag> preferredBag = null;
+
+	protected boolean usableOnItem( Item item ){
+		return true;
 	}
 	
 	protected abstract void onItemSelected( Item item );
 	
-	protected static WndBag.Listener itemSelector = new WndBag.Listener() {
+	protected WndBag.ItemSelector itemSelector = new WndBag.ItemSelector() {
+
+		@Override
+		public String textPrompt() {
+			return inventoryTitle();
+		}
+
+		@Override
+		public Class<? extends Bag> preferredBag() {
+			return preferredBag;
+		}
+
+		@Override
+		public boolean itemSelectable(Item item) {
+			return usableOnItem(item);
+		}
+
 		@Override
 		public void onSelect( Item item ) {
 			
@@ -54,6 +79,8 @@ public abstract class InventorySpell extends Spell {
 			}
 			
 			if (item != null) {
+
+				curItem = detach(curUser.belongings.backpack);
 				
 				((InventorySpell)curItem).onItemSelected( item );
 				curUser.spend( 1f );
@@ -62,9 +89,11 @@ public abstract class InventorySpell extends Spell {
 				
 				Sample.INSTANCE.play( Assets.Sounds.READ );
 				Invisibility.dispel();
+
+				if (Random.Float() < ((Spell)curItem).talentChance){
+					Talent.onScrollUsed(curUser, curUser.pos, ((Spell)curItem).talentFactor);
+				}
 				
-			} else {
-				curItem.collect( curUser.belongings.backpack );
 			}
 		}
 	};

@@ -3,7 +3,7 @@
  * Copyright (C) 2012-2015 Oleg Dolya
  *
  * Shattered Pixel Dungeon
- * Copyright (C) 2014-2021 Evan Debenham
+ * Copyright (C) 2014-2024 Evan Debenham
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -31,7 +31,7 @@ import com.watabou.noosa.Visual;
 
 public class Surprise extends Image {
 
-	private static final float TIME_TO_FADE = 0.8f;
+	private static final float TIME_TO_FADE = 1f;
 
 	private float time;
 
@@ -65,8 +65,9 @@ public class Surprise extends Image {
 			kill();
 		} else {
 			float p = time / TIME_TO_FADE;
-			alpha(p);
-			scale.y = 1 + p/2;
+			alpha((float) Math.sqrt(p));
+			scale.y = 1f + p;
+			scale.x = 1f + p/4f;
 		}
 	}
 
@@ -75,7 +76,7 @@ public class Surprise extends Image {
 	}
 
 	public static void hit(Char ch, float angle) {
-		if (ch.sprite.parent != null) {
+		if (ch.sprite != null && ch.sprite.parent != null) {
 			Surprise s = (Surprise) ch.sprite.parent.recycle(Surprise.class);
 			ch.sprite.parent.bringToFront(s);
 			s.reset(ch.sprite);

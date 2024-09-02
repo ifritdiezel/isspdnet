@@ -3,7 +3,7 @@
  * Copyright (C) 2012-2015 Oleg Dolya
  *
  * Shattered Pixel Dungeon
- * Copyright (C) 2014-2021 Evan Debenham
+ * Copyright (C) 2014-2024 Evan Debenham
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -24,6 +24,7 @@ package com.shatteredpixel.shatteredpixeldungeon.levels;
 import com.shatteredpixel.shatteredpixeldungeon.Assets;
 import com.shatteredpixel.shatteredpixeldungeon.Bones;
 import com.shatteredpixel.shatteredpixeldungeon.Dungeon;
+import com.shatteredpixel.shatteredpixeldungeon.Statistics;
 import com.shatteredpixel.shatteredpixeldungeon.actors.Actor;
 import com.shatteredpixel.shatteredpixeldungeon.actors.Char;
 import com.shatteredpixel.shatteredpixeldungeon.actors.mobs.DwarfKing;
@@ -31,16 +32,21 @@ import com.shatteredpixel.shatteredpixeldungeon.actors.mobs.Mob;
 import com.shatteredpixel.shatteredpixeldungeon.actors.mobs.npcs.Imp;
 import com.shatteredpixel.shatteredpixeldungeon.items.Heap;
 import com.shatteredpixel.shatteredpixeldungeon.items.Item;
+import com.shatteredpixel.shatteredpixeldungeon.levels.features.LevelTransition;
 import com.shatteredpixel.shatteredpixeldungeon.levels.painters.CityPainter;
 import com.shatteredpixel.shatteredpixeldungeon.levels.painters.Painter;
 import com.shatteredpixel.shatteredpixeldungeon.levels.rooms.standard.ImpShopRoom;
 import com.shatteredpixel.shatteredpixeldungeon.messages.Messages;
 import com.shatteredpixel.shatteredpixeldungeon.scenes.GameScene;
 import com.shatteredpixel.shatteredpixeldungeon.tiles.CustomTilemap;
+import com.shatteredpixel.shatteredpixeldungeon.ui.BossHealthBar;
+import com.watabou.noosa.Game;
 import com.watabou.noosa.Group;
 import com.watabou.noosa.Tilemap;
+import com.watabou.noosa.audio.Music;
 import com.watabou.noosa.tweeners.AlphaTweener;
 import com.watabou.utils.Bundle;
+import com.watabou.utils.Callback;
 import com.watabou.utils.PathFinder;
 import com.watabou.utils.Point;
 import com.watabou.utils.Random;
@@ -79,6 +85,22 @@ public class CityBossLevel extends Level {
 	}
 
 	private ImpShopRoom impShop;
+
+	@Override
+	public void playLevelMusic() {
+		if (locked){
+			if (BossHealthBar.isBleeding()){
+				Music.INSTANCE.play(Assets.Music.CITY_BOSS_FINALE, true);
+			} else {
+				Music.INSTANCE.play(Assets.Music.CITY_BOSS, true);
+			}
+		//if top door isn't unlocked
+		} else if (map[topDoor] == Terrain.LOCKED_DOOR){
+			Music.INSTANCE.end();
+		} else {
+			Music.INSTANCE.playTracks(CityLevel.CITY_TRACK_LIST, CityLevel.CITY_TRACK_CHANCES, false);
+		}
+	}
 
 	@Override
 	public String tilesTex() {
@@ -129,14 +151,15 @@ public class CityBossLevel extends Level {
 
 		Painter.set(this, c.x, entry.top, Terrain.DOOR);
 
-		entrance = c.x + (c.y+2)*width();
+		int entrance = c.x + (c.y+2)*width();
 		Painter.set(this, entrance, Terrain.ENTRANCE);
+		transitions.add(new LevelTransition(this, entrance, LevelTransition.Type.REGULAR_ENTRANCE));
 
 		//DK's throne room
 		Painter.fillDiamond(this, arena, 1, Terrain.EMPTY);
 
 		Painter.fill(this, arena, 5, Terrain.EMPTY_SP);
-		Painter.fill(this, arena, 6, Terrain.SIGN);
+		Painter.fill(this, arena, 6, Terrain.CUSTOM_DECO);
 
 		c = arena.center();
 		Painter.set(this, c.x-3, c.y, Terrain.STATUE);
@@ -155,7 +178,11 @@ public class CityBossLevel extends Level {
 		Painter.fill(this, end, Terrain.CHASM);
 		Painter.fill(this, end.left+4, end.top+5, 7, 18, Terrain.EMPTY);
 		Painter.fill(this, end.left+4, end.top+5, 7, 4, Terrain.EXIT);
-		exit = end.left+7 + (end.top+8)*width();
+
+		int exitCell = end.left+7 + (end.top+8)*width();
+		LevelTransition exit = new LevelTransition(this, exitCell, LevelTransition.Type.REGULAR_EXIT);
+		exit.set(end.left+4, end.top+4, end.left+4+6, end.top+4+4);
+		transitions.add(exit);
 
 		impShop = new ImpShopRoom();
 		impShop.set(end.left+3, end.top+12, end.left+11, end.top+20);
@@ -167,6 +194,7 @@ public class CityBossLevel extends Level {
 		Painter.fill(this, end.left+5, end.bottom+1, 5, 1, Terrain.EMPTY);
 		Painter.fill(this, end.left+6, end.bottom+2, 3, 1, Terrain.EMPTY);
 
+		impShop.paint(this);
 		new CityPainter().paint(this, null);
 
 		//pillars last, no deco on these
@@ -232,43 +260,53 @@ public class CityBossLevel extends Level {
 
 	@Override
 	protected void createItems() {
-		Item item = Bones.get();
-		if (item != null) {
-			int pos;
-			do {
-				pos = randomRespawnCell(null);
-			} while (pos == entrance);
-			drop( item, pos ).setHauntedIfCursed().type = Heap.Type.REMAINS;
-		}
+		Random.pushGenerator(Random.Long());
+			ArrayList<Item> bonesItems = Bones.get();
+			if (bonesItems != null) {
+				int pos;
+				do {
+					pos = randomRespawnCell(null);
+				} while (pos == entrance());
+				for (Item i : bonesItems) {
+					drop(i, pos).setHauntedIfCursed().type = Heap.Type.REMAINS;
+				}
+			}
+		Random.popGenerator();
 	}
 
 	@Override
 	public int randomRespawnCell( Char ch ) {
-		int cell;
-		do {
-			cell = entrance + PathFinder.NEIGHBOURS8[Random.Int(8)];
-		} while (!passable[cell]
-				|| (Char.hasProp(ch, Char.Property.LARGE) && !openSpace[cell])
-				|| Actor.findChar(cell) != null);
-		return cell;
+		ArrayList<Integer> candidates = new ArrayList<>();
+		for (int i : PathFinder.NEIGHBOURS8){
+			int cell = entrance() + i;
+			if (passable[cell]
+					&& Actor.findChar(cell) == null
+					&& (!Char.hasProp(ch, Char.Property.LARGE) || openSpace[cell])){
+				candidates.add(cell);
+			}
+		}
+
+		if (candidates.isEmpty()){
+			return -1;
+		} else {
+			return Random.element(candidates);
+		}
 	}
 
 	@Override
 	public void occupyCell( Char ch ) {
-
-		super.occupyCell( ch );
-
 		if (map[bottomDoor] != Terrain.LOCKED_DOOR && map[topDoor] == Terrain.LOCKED_DOOR
 				&& ch.pos < bottomDoor && ch == Dungeon.hero) {
-
 			seal();
-
 		}
+
+		super.occupyCell( ch );
 	}
 
 	@Override
 	public void seal() {
 		super.seal();
+		Statistics.qualifiedForBossChallengeBadge = true;
 
 		//moves intelligent allies with the hero, preferring closer pos to entrance door
 		int doorPos = pointToCell(new Point(arena.left + arena.width()/2, arena.bottom));
@@ -279,6 +317,7 @@ public class CityBossLevel extends Level {
 		boss.state = boss.WANDERING;
 		boss.pos = pointToCell(arena.center());
 		GameScene.add( boss );
+		boss.beckon(Dungeon.hero.pos);
 
 		if (heroFOV[boss.pos]) {
 			boss.notice();
@@ -289,6 +328,13 @@ public class CityBossLevel extends Level {
 		set( bottomDoor, Terrain.LOCKED_DOOR );
 		GameScene.updateMap( bottomDoor );
 		Dungeon.observe();
+
+		Game.runOnRenderThread(new Callback() {
+			@Override
+			public void call() {
+				Music.INSTANCE.play(Assets.Music.CITY_BOSS, true);
+			}
+		});
 	}
 
 	@Override
@@ -305,10 +351,22 @@ public class CityBossLevel extends Level {
 			spawnShop();
 		}
 		Dungeon.observe();
+
+		Game.runOnRenderThread(new Callback() {
+			@Override
+			public void call() {
+				Music.INSTANCE.fadeOut(5f, new Callback() {
+					@Override
+					public void call() {
+						Music.INSTANCE.end();
+					}
+				});
+			}
+		});
 	}
 
 	private void spawnShop(){
-		while (impShop.itemCount() >= 7*(impShop.height()-2)){
+		while (impShop.spacesNeeded() >= 7*(impShop.height()-2)){
 			impShop.bottom++;
 		}
 		impShop.spawnShop(this);
@@ -330,6 +388,7 @@ public class CityBossLevel extends Level {
 	public String tileDesc(int tile) {
 		switch (tile) {
 			case Terrain.ENTRANCE:
+			case Terrain.ENTRANCE_SP:
 				return Messages.get(CityLevel.class, "entrance_desc");
 			case Terrain.EXIT:
 				return Messages.get(CityLevel.class, "exit_desc");
@@ -461,13 +520,13 @@ public class CityBossLevel extends Level {
 						data[++i] = 13 * 8 + 2;
 						data[++i] = 13 * 8 + 3;
 
-						//mid row of DK's throne
-					}else if (map[i + 1] == Terrain.SIGN) {
+					//mid row of DK's throne
+					}else if (map[i + 1] == Terrain.CUSTOM_DECO) {
 						data[i] = 14 * 8 + 1;
 						data[++i] = 14 * 8 + 2;
 						data[++i] = 14 * 8 + 3;
 
-						//bottom row of DK's throne
+					//bottom row of DK's throne
 					} else if (map[i+1] == Terrain.EMPTY_SP && map[i-tileW] == Terrain.EMPTY_SP){
 						data[i] = 15*8 + 1;
 						data[++i] = 15*8 + 2;
@@ -504,7 +563,7 @@ public class CityBossLevel extends Level {
 
 				//DK arena tiles
 			} else {
-				if (Dungeon.level.map[cell] == Terrain.SIGN){
+				if (Dungeon.level.map[cell] == Terrain.CUSTOM_DECO){
 					return Messages.get(CityBossLevel.class, "throne_name");
 				} else if (Dungeon.level.map[cell] == Terrain.PEDESTAL){
 					return Messages.get(CityBossLevel.class, "summoning_name");
@@ -530,7 +589,7 @@ public class CityBossLevel extends Level {
 
 			//DK arena tiles
 			} else {
-				if (Dungeon.level.map[cell] == Terrain.SIGN){
+				if (Dungeon.level.map[cell] == Terrain.CUSTOM_DECO){
 					return Messages.get(CityBossLevel.class, "throne_desc");
 				} else if (Dungeon.level.map[cell] == Terrain.PEDESTAL){
 					return Messages.get(CityBossLevel.class, "summoning_desc");
@@ -606,7 +665,7 @@ public class CityBossLevel extends Level {
 				//Statues that need to face left instead of right
 				if (map[i] == Terrain.STATUE && i%tileW > 7){
 					data[i-tileW] = 14*8 + 4;
-				} else if (map[i] == Terrain.SIGN){
+				} else if (map[i] == Terrain.CUSTOM_DECO){
 					data[i-tileW] = 13*8 + 5;
 				}
 

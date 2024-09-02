@@ -3,7 +3,7 @@
  * Copyright (C) 2012-2015 Oleg Dolya
  *
  * Shattered Pixel Dungeon
- * Copyright (C) 2014-2021 Evan Debenham
+ * Copyright (C) 2014-2024 Evan Debenham
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -32,6 +32,7 @@ import com.shatteredpixel.shatteredpixeldungeon.sprites.CharSprite;
 import com.shatteredpixel.shatteredpixeldungeon.sprites.GreatCrabSprite;
 import com.shatteredpixel.shatteredpixeldungeon.utils.GLog;
 import com.watabou.noosa.audio.Sample;
+import com.watabou.utils.PathFinder;
 import com.watabou.utils.Random;
 
 public class GreatCrab extends Crab {
@@ -45,6 +46,7 @@ public class GreatCrab extends Crab {
 
 		EXP = 6;
 
+		WANDERING = new Wandering();
 		state = WANDERING;
 
 		loot = new MysteryMeat().quantity(2);
@@ -70,13 +72,16 @@ public class GreatCrab extends Crab {
 
 	@Override
 	public void damage( int dmg, Object src ){
-		//crab blocks all attacks originating from its current enemy if it sees them.
-		//All direct damage is negated, no exceptions. environmental effects go through as normal.
-		if ((enemySeen && state != SLEEPING && paralysed == 0)
-				&& ((src instanceof Wand && enemy == Dungeon.hero)
-				|| (src instanceof Char && enemy == src))){
+		//crab blocks all wand damage from the hero if it sees them.
+		//Direct damage is negated, but add-on effects and environmental effects go through as normal.
+		if (enemySeen
+				&& state != SLEEPING
+				&& paralysed == 0
+				&& src instanceof Wand
+				&& enemy == Dungeon.hero
+				&& enemy.invisible == 0){
 			GLog.n( Messages.get(this, "noticed") );
-			sprite.showStatus( CharSprite.NEUTRAL, Messages.get(this, "blocked") );
+			sprite.showStatus( CharSprite.NEUTRAL, Messages.get(this, "def_verb") );
 			Sample.INSTANCE.play( Assets.Sounds.HIT_PARRY, 1, Random.Float(0.96f, 1.05f));
 		} else {
 			super.damage( dmg, src );
@@ -84,9 +89,41 @@ public class GreatCrab extends Crab {
 	}
 
 	@Override
+	public int defenseSkill( Char enemy ) {
+		//crab blocks all melee attacks from its current target
+		if (enemySeen
+				&& state != SLEEPING
+				&& paralysed == 0
+				&& enemy == this.enemy
+				&& enemy.invisible == 0){
+			if (sprite != null && sprite.visible) {
+				Sample.INSTANCE.play(Assets.Sounds.HIT_PARRY, 1, Random.Float(0.96f, 1.05f));
+				GLog.n( Messages.get(this, "noticed") );
+			}
+			return INFINITE_EVASION;
+		}
+		return super.defenseSkill( enemy );
+	}
+
+	@Override
 	public void die( Object cause ) {
 		super.die( cause );
 
 		Ghost.Quest.process();
+	}
+
+	protected class Wandering extends Mob.Wandering{
+		@Override
+		protected int randomDestination() {
+			//of two potential wander positions, picks the one closest to the hero
+			int pos1 = super.randomDestination();
+			int pos2 = super.randomDestination();
+			PathFinder.buildDistanceMap(Dungeon.hero.pos, Dungeon.level.passable);
+			if (PathFinder.distance[pos2] < PathFinder.distance[pos1]){
+				return pos2;
+			} else {
+				return pos1;
+			}
+		}
 	}
 }

@@ -3,7 +3,7 @@
  * Copyright (C) 2012-2015 Oleg Dolya
  *
  * Shattered Pixel Dungeon
- * Copyright (C) 2014-2021 Evan Debenham
+ * Copyright (C) 2014-2024 Evan Debenham
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -30,6 +30,7 @@ import com.shatteredpixel.shatteredpixeldungeon.items.KingsCrown;
 import com.shatteredpixel.shatteredpixeldungeon.messages.Messages;
 import com.shatteredpixel.shatteredpixeldungeon.scenes.GameScene;
 import com.shatteredpixel.shatteredpixeldungeon.sprites.RatKingSprite;
+import com.shatteredpixel.shatteredpixeldungeon.utils.Holiday;
 import com.shatteredpixel.shatteredpixeldungeon.windows.WndInfoArmorAbility;
 import com.shatteredpixel.shatteredpixeldungeon.windows.WndOptions;
 import com.watabou.noosa.Game;
@@ -57,13 +58,15 @@ public class RatKing extends NPC {
 	protected Char chooseEnemy() {
 		return null;
 	}
-	
+
 	@Override
 	public void damage( int dmg, Object src ) {
+		//do nothing
 	}
-	
+
 	@Override
-	public void add( Buff buff ) {
+	public boolean add( Buff buff ) {
+		return false;
 	}
 	
 	@Override
@@ -76,7 +79,7 @@ public class RatKing extends NPC {
 	@Override
 	protected void onAdd() {
 		super.onAdd();
-		if (Dungeon.depth != 5){
+		if (firstAdded && Dungeon.depth != 5){
 			yell(Messages.get(this, "confused"));
 		}
 	}
@@ -84,18 +87,18 @@ public class RatKing extends NPC {
 	@Override
 	protected boolean act() {
 		if (Dungeon.depth < 5){
-			if (pos == Dungeon.level.exit){
+			if (pos == Dungeon.level.exit()){
 				destroy();
 				sprite.killAndErase();
 			} else {
-				target = Dungeon.level.exit;
+				target = Dungeon.level.exit();
 			}
 		} else if (Dungeon.depth > 5){
-			if (pos == Dungeon.level.entrance){
+			if (pos == Dungeon.level.entrance()){
 				destroy();
 				sprite.killAndErase();
 			} else {
-				target = Dungeon.level.entrance;
+				target = Dungeon.level.entrance();
 			}
 		}
 		return super.act();
@@ -117,7 +120,7 @@ public class RatKing extends NPC {
 			yell( Messages.get(this, "not_sleeping") );
 			state = WANDERING;
 		} else if (crown != null){
-			if (Dungeon.hero.belongings.armor == null){
+			if (Dungeon.hero.belongings.armor() == null){
 				yell( Messages.get(RatKing.class, "crown_clothes") );
 			} else {
 				Badges.validateRatmogrify();
@@ -135,7 +138,7 @@ public class RatKing extends NPC {
 							@Override
 							protected void onSelect(int index) {
 								if (index == 0){
-									crown.upgradeArmor(Dungeon.hero, Dungeon.hero.belongings.armor, new Ratmogrify());
+									crown.upgradeArmor(Dungeon.hero, Dungeon.hero.belongings.armor(), new Ratmogrify());
 									((RatKingSprite)sprite).resetAnims();
 									yell(Messages.get(RatKing.class, "crown_thankyou"));
 								} else if (index == 1) {
@@ -158,8 +161,14 @@ public class RatKing extends NPC {
 	
 	@Override
 	public String description() {
-		return ((RatKingSprite)sprite).festive ?
-				Messages.get(this, "desc_festive")
-				: super.description();
+		if (Dungeon.hero.armorAbility instanceof Ratmogrify){
+			return Messages.get(this, "desc_crown");
+		} else if (Holiday.getCurrentHoliday() == Holiday.APRIL_FOOLS){
+			return Messages.get(this, "desc_birthday");
+		} else if (Holiday.getCurrentHoliday() == Holiday.WINTER_HOLIDAYS){
+			return Messages.get(this, "desc_winter");
+		} else {
+			return super.description();
+		}
 	}
 }

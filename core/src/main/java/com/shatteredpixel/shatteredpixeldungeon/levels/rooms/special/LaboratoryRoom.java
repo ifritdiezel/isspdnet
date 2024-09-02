@@ -3,7 +3,7 @@
  * Copyright (C) 2012-2015 Oleg Dolya
  *
  * Shattered Pixel Dungeon
- * Copyright (C) 2014-2021 Evan Debenham
+ * Copyright (C) 2014-2024 Evan Debenham
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -24,14 +24,15 @@ package com.shatteredpixel.shatteredpixeldungeon.levels.rooms.special;
 import com.shatteredpixel.shatteredpixeldungeon.Dungeon;
 import com.shatteredpixel.shatteredpixeldungeon.actors.blobs.Alchemy;
 import com.shatteredpixel.shatteredpixeldungeon.actors.blobs.Blob;
+import com.shatteredpixel.shatteredpixeldungeon.items.EnergyCrystal;
 import com.shatteredpixel.shatteredpixeldungeon.items.Generator;
 import com.shatteredpixel.shatteredpixeldungeon.items.Item;
 import com.shatteredpixel.shatteredpixeldungeon.items.journal.AlchemyPage;
 import com.shatteredpixel.shatteredpixeldungeon.items.keys.IronKey;
 import com.shatteredpixel.shatteredpixeldungeon.items.potions.Potion;
+import com.shatteredpixel.shatteredpixeldungeon.items.trinkets.TrinketCatalyst;
 import com.shatteredpixel.shatteredpixeldungeon.journal.Document;
 import com.shatteredpixel.shatteredpixeldungeon.levels.Level;
-import com.shatteredpixel.shatteredpixeldungeon.levels.RegularLevel;
 import com.shatteredpixel.shatteredpixeldungeon.levels.Terrain;
 import com.shatteredpixel.shatteredpixeldungeon.levels.painters.Painter;
 import com.watabou.utils.Point;
@@ -62,11 +63,18 @@ public class LaboratoryRoom extends SpecialRoom {
 		Painter.set( level, pot, Terrain.ALCHEMY );
 		
 		int chapter = 1 + Dungeon.depth/5;
-		Blob.seed( pot.x + level.width() * pot.y, 1 + chapter*10 + Random.NormalIntRange(0, 10), Alchemy.class, level );
-		
-		int n = Random.NormalIntRange( 1, 3 );
+		Blob.seed( pot.x + level.width() * pot.y, 1, Alchemy.class, level );
+
+		int pos;
+		do {
+			pos = level.pointToCell(random());
+		} while (
+				level.map[pos] != Terrain.EMPTY_SP ||
+						level.heaps.get( pos ) != null);
+		level.drop( new EnergyCrystal().quantity(5), pos );
+
+		int n = Random.NormalIntRange( 1, 2 );
 		for (int i=0; i < n; i++) {
-			int pos;
 			do {
 				pos = level.pointToCell(random());
 			} while (
@@ -76,19 +84,17 @@ public class LaboratoryRoom extends SpecialRoom {
 		}
 		
 		//guide pages
-		Collection<String> allPages = Document.ALCHEMY_GUIDE.pages();
+		Collection<String> allPages = Document.ALCHEMY_GUIDE.pageNames();
 		ArrayList<String> missingPages = new ArrayList<>();
 		for ( String page : allPages){
-			if (!Document.ALCHEMY_GUIDE.hasPage(page)){
+			if (!Document.ALCHEMY_GUIDE.isPageFound(page)){
 				missingPages.add(page);
 			}
 		}
 		
-		//4 pages in sewers, 6 in prison, 9 in caves+
+		//5 pages in sewers, 10 in prison+
 		int chapterTarget;
-		if (missingPages.size() <= 3){
-			chapterTarget = 3;
-		} else if (missingPages.size() <= 5){
+		if (missingPages.size() <= 5){
 			chapterTarget = 2;
 		} else {
 			chapterTarget = 1;
@@ -102,7 +108,6 @@ public class LaboratoryRoom extends SpecialRoom {
 			for (int i = 0; i < pagesToDrop; i++) {
 				AlchemyPage p = new AlchemyPage();
 				p.page(missingPages.remove(0));
-				int pos;
 				do {
 					pos = level.pointToCell(random());
 				} while (
@@ -111,21 +116,21 @@ public class LaboratoryRoom extends SpecialRoom {
 				level.drop(p, pos);
 			}
 		}
-		
-		if (level instanceof RegularLevel && ((RegularLevel)level).hasPitRoom()){
-			entrance.set( Door.Type.REGULAR );
-		} else {
-			entrance.set( Door.Type.LOCKED );
-			level.addItemToSpawn( new IronKey( Dungeon.depth ) );
-		}
+
+		entrance.set( Door.Type.LOCKED );
+		level.addItemToSpawn( new IronKey( Dungeon.depth ) );
 		
 	}
 	
 	private static Item prize( Level level ) {
 
-		Item prize = level.findPrizeItem( Potion.class );
-		if (prize == null)
-			prize = Generator.random( Random.oneOf( Generator.Category.POTION, Generator.Category.STONE ));
+		Item prize = level.findPrizeItem( TrinketCatalyst.class );
+		if (prize == null){
+			prize = level.findPrizeItem( Potion.class );
+			if (prize == null) {
+				prize = Generator.random(Random.oneOf(Generator.Category.POTION, Generator.Category.STONE));
+			}
+		}
 
 		return prize;
 	}

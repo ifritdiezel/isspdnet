@@ -3,7 +3,7 @@
  * Copyright (C) 2012-2015 Oleg Dolya
  *
  * Shattered Pixel Dungeon
- * Copyright (C) 2014-2021 Evan Debenham
+ * Copyright (C) 2014-2024 Evan Debenham
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -22,7 +22,6 @@
 package com.watabou.noosa;
 
 import com.badlogic.gdx.graphics.Pixmap;
-import com.watabou.gltextures.SmartTexture;
 import com.watabou.gltextures.TextureCache;
 
 public class Halo extends Image {
@@ -38,12 +37,17 @@ public class Halo extends Image {
 		super();
 		
 		if (!TextureCache.contains( CACHE_KEY )) {
-			Pixmap pixmap = new Pixmap(2*RADIUS+1, 2*RADIUS+1, Pixmap.Format.RGBA8888);
+
+			Pixmap pixmap = TextureCache.create( CACHE_KEY, 2*RADIUS+1, 2*RADIUS+1 ).bitmap;
+
+			pixmap.setColor( 0x00000000 );
+			pixmap.fill();
+
 			pixmap.setColor( 0xFFFFFF08 );
 			for (int i = 0; i < RADIUS; i+=2) {
 				pixmap.fillCircle(RADIUS, RADIUS, (RADIUS - i));
 			}
-			TextureCache.add( CACHE_KEY, new SmartTexture( pixmap ) );
+
 		}
 		
 		texture( CACHE_KEY );
@@ -63,8 +67,14 @@ public class Halo extends Image {
 		this.y = y - (height()/2f);
 		return this;
 	}
-	
-	public void radius( float value ) {
+
+	@Override
+	public void alpha( float value) {
+		brightness = value;
+		super.alpha(value);
+	}
+
+	public void radius(float value ) {
 		scale.set(  (this.radius = value) / RADIUS );
 	}
 }

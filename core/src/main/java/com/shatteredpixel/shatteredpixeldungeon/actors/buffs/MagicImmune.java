@@ -3,7 +3,7 @@
  * Copyright (C) 2012-2015 Oleg Dolya
  *
  * Shattered Pixel Dungeon
- * Copyright (C) 2014-2021 Evan Debenham
+ * Copyright (C) 2014-2024 Evan Debenham
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -21,8 +21,9 @@
 
 package com.shatteredpixel.shatteredpixeldungeon.actors.buffs;
 
+import com.shatteredpixel.shatteredpixeldungeon.actors.Char;
+import com.shatteredpixel.shatteredpixeldungeon.actors.hero.Hero;
 import com.shatteredpixel.shatteredpixeldungeon.items.armor.glyphs.AntiMagic;
-import com.shatteredpixel.shatteredpixeldungeon.messages.Messages;
 import com.shatteredpixel.shatteredpixeldungeon.ui.BuffIndicator;
 import com.watabou.noosa.Image;
 
@@ -38,9 +39,35 @@ public class MagicImmune extends FlavourBuff {
 	{
 		immunities.addAll(AntiMagic.RESISTS);
 	}
-	
-	//FIXME what about active buffs/debuffs?, what about rings? what about artifacts?
-	
+
+	@Override
+	public boolean attachTo(Char target) {
+		if (super.attachTo(target)){
+			for (Buff b : target.buffs()){
+				for (Class immunity : immunities){
+					if (b.getClass().isAssignableFrom(immunity)){
+						b.detach();
+						break;
+					}
+				}
+			}
+			if (target instanceof Hero){
+				((Hero) target).updateHT(false);
+			}
+			return true;
+		} else {
+			return false;
+		}
+	}
+
+	@Override
+	public void detach() {
+		super.detach();
+		if (target instanceof Hero){
+			((Hero) target).updateHT(false);
+		}
+	}
+
 	@Override
 	public int icon() {
 		return BuffIndicator.COMBO;
@@ -55,15 +82,4 @@ public class MagicImmune extends FlavourBuff {
 	public float iconFadePercent() {
 		return Math.max(0, (DURATION - visualcooldown()) / DURATION);
 	}
-	
-	@Override
-	public String toString() {
-		return Messages.get(this, "name");
-	}
-	
-	@Override
-	public String desc() {
-		return Messages.get(this, "desc", dispTurns());
-	}
-	
 }

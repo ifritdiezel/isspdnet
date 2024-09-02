@@ -3,7 +3,7 @@
  * Copyright (C) 2012-2015 Oleg Dolya
  *
  * Shattered Pixel Dungeon
- * Copyright (C) 2014-2021 Evan Debenham
+ * Copyright (C) 2014-2024 Evan Debenham
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -25,16 +25,15 @@ import com.shatteredpixel.shatteredpixeldungeon.Assets;
 import com.shatteredpixel.shatteredpixeldungeon.Dungeon;
 import com.shatteredpixel.shatteredpixeldungeon.actors.Actor;
 import com.shatteredpixel.shatteredpixeldungeon.actors.Char;
-import com.shatteredpixel.shatteredpixeldungeon.actors.hero.Hero;
 import com.shatteredpixel.shatteredpixeldungeon.actors.mobs.Mob;
 import com.shatteredpixel.shatteredpixeldungeon.effects.CellEmitter;
 import com.shatteredpixel.shatteredpixeldungeon.effects.Speck;
 import com.shatteredpixel.shatteredpixeldungeon.items.Heap;
+import com.shatteredpixel.shatteredpixeldungeon.items.Honeypot;
 import com.shatteredpixel.shatteredpixeldungeon.items.Item;
 import com.shatteredpixel.shatteredpixeldungeon.items.scrolls.ScrollOfTeleportation;
-import com.shatteredpixel.shatteredpixeldungeon.messages.Messages;
-import com.shatteredpixel.shatteredpixeldungeon.utils.GLog;
 import com.watabou.noosa.audio.Sample;
+import com.watabou.utils.PathFinder;
 
 public class TeleportationTrap extends Trap {
 
@@ -46,52 +45,31 @@ public class TeleportationTrap extends Trap {
 	@Override
 	public void activate() {
 
-		CellEmitter.get(pos).start(Speck.factory(Speck.LIGHT), 0.2f, 3);
-		Sample.INSTANCE.play( Assets.Sounds.TELEPORT );
-
-		Char ch = Actor.findChar( pos);
-		if (ch != null && !ch.flying) {
-			if (ch instanceof Hero) {
-				ScrollOfTeleportation.teleportHero((Hero) ch);
-			} else {
-				int count = 20;
-				int pos;
-				do {
-					pos = Dungeon.level.randomRespawnCell( ch );
-					if (count-- <= 0) {
-						break;
-					}
-				} while (pos == -1 || Dungeon.level.secret[pos]);
-				
-				if (pos == -1 || Dungeon.bossLevel()) {
-					
-					GLog.w(Messages.get(ScrollOfTeleportation.class, "no_tele"));
-					
-				} else {
-					
-					ch.pos = pos;
+		for (int i : PathFinder.NEIGHBOURS9){
+			Char ch = Actor.findChar(pos + i);
+			if (ch != null){
+				if (ScrollOfTeleportation.teleportChar(ch)) {
 					if (ch instanceof Mob && ((Mob) ch).state == ((Mob) ch).HUNTING) {
 						((Mob) ch).state = ((Mob) ch).WANDERING;
 					}
-					ch.sprite.place(ch.pos);
-					ch.sprite.visible = Dungeon.level.heroFOV[pos];
-					
+				}
+			}
+			Heap heap = Dungeon.level.heaps.get(pos + i);
+			if (heap != null && heap.type == Heap.Type.HEAP){
+				int cell = Dungeon.level.randomRespawnCell( null );
+
+				Item item = heap.pickUp();
+
+				if (cell != -1) {
+					Dungeon.level.drop( item, cell );
+					if (item instanceof Honeypot.ShatteredPot){
+						((Honeypot.ShatteredPot)item).movePot(pos, cell);
+					}
+					Sample.INSTANCE.play(Assets.Sounds.TELEPORT);
+					CellEmitter.get(pos).burst(Speck.factory(Speck.LIGHT), 4);
 				}
 			}
 		}
 
-		Heap heap = Dungeon.level.heaps.get(pos);
-
-		if (heap != null){
-			int cell = Dungeon.level.randomRespawnCell( null );
-
-			Item item = heap.pickUp();
-
-			if (cell != -1) {
-				Heap dropped = Dungeon.level.drop( item, cell );
-				dropped.type = heap.type;
-				dropped.sprite.view( dropped );
-			}
-		}
 	}
 }

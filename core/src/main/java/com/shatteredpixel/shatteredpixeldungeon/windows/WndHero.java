@@ -3,7 +3,7 @@
  * Copyright (C) 2012-2015 Oleg Dolya
  *
  * Shattered Pixel Dungeon
- * Copyright (C) 2014-2021 Evan Debenham
+ * Copyright (C) 2014-2024 Evan Debenham
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -21,7 +21,6 @@
 
 package com.shatteredpixel.shatteredpixeldungeon.windows;
 
-import com.shatteredpixel.shatteredpixeldungeon.Assets;
 import com.shatteredpixel.shatteredpixeldungeon.Dungeon;
 import com.shatteredpixel.shatteredpixeldungeon.ShatteredPixelDungeon;
 import com.shatteredpixel.shatteredpixeldungeon.Statistics;
@@ -31,19 +30,20 @@ import com.shatteredpixel.shatteredpixeldungeon.messages.Messages;
 import com.shatteredpixel.shatteredpixeldungeon.scenes.GameScene;
 import com.shatteredpixel.shatteredpixeldungeon.scenes.PixelScene;
 import com.shatteredpixel.shatteredpixeldungeon.sprites.HeroSprite;
+import com.shatteredpixel.shatteredpixeldungeon.ui.BuffIcon;
 import com.shatteredpixel.shatteredpixeldungeon.ui.BuffIndicator;
 import com.shatteredpixel.shatteredpixeldungeon.ui.IconButton;
 import com.shatteredpixel.shatteredpixeldungeon.ui.Icons;
 import com.shatteredpixel.shatteredpixeldungeon.ui.RenderedTextBlock;
 import com.shatteredpixel.shatteredpixeldungeon.ui.ScrollPane;
 import com.shatteredpixel.shatteredpixeldungeon.ui.StatusPane;
+import com.shatteredpixel.shatteredpixeldungeon.ui.TalentButton;
 import com.shatteredpixel.shatteredpixeldungeon.ui.TalentsPane;
 import com.shatteredpixel.shatteredpixeldungeon.ui.Window;
-import com.watabou.gltextures.SmartTexture;
-import com.watabou.gltextures.TextureCache;
+import com.shatteredpixel.shatteredpixeldungeon.utils.DungeonSeed;
+import com.watabou.noosa.Gizmo;
 import com.watabou.noosa.Group;
 import com.watabou.noosa.Image;
-import com.watabou.noosa.TextureFilm;
 import com.watabou.noosa.ui.Component;
 
 import java.util.ArrayList;
@@ -78,14 +78,19 @@ public class WndHero extends WndTabbed {
 		buffs.setRect(0, 0, WIDTH, HEIGHT);
 		buffs.setupList();
 		
-		add( new LabeledTab( Messages.get(this, "stats") ) {
+		add( new IconTab( Icons.get(Icons.RANKINGS) ) {
 			protected void select( boolean value ) {
 				super.select( value );
-				if (selected) lastIdx = 0;
+				if (selected) {
+					lastIdx = 0;
+					if (!stats.visible) {
+						stats.initialize();
+					}
+				}
 				stats.visible = stats.active = selected;
 			}
 		} );
-		add( new LabeledTab( Messages.get(this, "talents") ) {
+		add( new IconTab( Icons.get(Icons.TALENT) ) {
 			protected void select( boolean value ) {
 				super.select( value );
 				if (selected) lastIdx = 1;
@@ -93,7 +98,7 @@ public class WndHero extends WndTabbed {
 				talents.visible = talents.active = selected;
 			}
 		} );
-		add( new LabeledTab( Messages.get(this, "buffs") ) {
+		add( new IconTab( Icons.get(Icons.BUFFS) ) {
 			protected void select( boolean value ) {
 				super.select( value );
 				if (selected) lastIdx = 2;
@@ -110,6 +115,13 @@ public class WndHero extends WndTabbed {
 		select( lastIdx );
 	}
 
+	@Override
+	public void offset(int xOffset, int yOffset) {
+		super.offset(xOffset, yOffset);
+		talents.layout();
+		buffs.layout();
+	}
+
 	private class StatsTab extends Group {
 		
 		private static final int GAP = 6;
@@ -117,6 +129,15 @@ public class WndHero extends WndTabbed {
 		private float pos;
 		
 		public StatsTab() {
+			initialize();
+		}
+
+		public void initialize(){
+
+			for (Gizmo g : members){
+				if (g != null) g.destroy();
+			}
+			clear();
 			
 			Hero hero = Dungeon.hero;
 
@@ -134,23 +155,47 @@ public class WndHero extends WndTabbed {
 				@Override
 				protected void onClick() {
 					super.onClick();
-					ShatteredPixelDungeon.scene().addToFront(new WndHeroInfo(hero.heroClass));
+					if (ShatteredPixelDungeon.scene() instanceof GameScene){
+						GameScene.show(new WndHeroInfo(hero.heroClass));
+					} else {
+						ShatteredPixelDungeon.scene().addToFront(new WndHeroInfo(hero.heroClass));
+					}
 				}
+
+				@Override
+				protected String hoverText() {
+					return Messages.titleCase(Messages.get(WndKeyBindings.class, "hero_info"));
+				}
+
 			};
 			infoButton.setRect(title.right(), 0, 16, 16);
 			add(infoButton);
 
 			pos = title.bottom() + 2*GAP;
 
-			statSlot( Messages.get(this, "str"), hero.STR() );
-			if (hero.shielding() > 0) statSlot( Messages.get(this, "health"), hero.HP + "+" + hero.shielding() + "/" + hero.HT );
-			else statSlot( Messages.get(this, "health"), (hero.HP) + "/" + hero.HT );
+			int strBonus = hero.STR() - hero.STR;
+			if (strBonus > 0)           statSlot( Messages.get(this, "str"), hero.STR + " + " + strBonus );
+			else if (strBonus < 0)      statSlot( Messages.get(this, "str"), hero.STR + " - " + -strBonus );
+			else                        statSlot( Messages.get(this, "str"), hero.STR() );
+			if (hero.shielding() > 0)   statSlot( Messages.get(this, "health"), hero.HP + "+" + hero.shielding() + "/" + hero.HT );
+			else                        statSlot( Messages.get(this, "health"), (hero.HP) + "/" + hero.HT );
 			statSlot( Messages.get(this, "exp"), hero.exp + "/" + hero.maxExp() );
 
 			pos += GAP;
 
 			statSlot( Messages.get(this, "gold"), Statistics.goldCollected );
 			statSlot( Messages.get(this, "depth"), Statistics.deepestFloor );
+			if (Dungeon.daily){
+				if (!Dungeon.dailyReplay) {
+					statSlot(Messages.get(this, "daily_for"), "_" + Dungeon.customSeedText + "_");
+				} else {
+					statSlot(Messages.get(this, "replay_for"), "_" + Dungeon.customSeedText + "_");
+				}
+			} else if (!Dungeon.customSeedText.isEmpty()){
+				statSlot( Messages.get(this, "custom_seed"), "_" + Dungeon.customSeedText + "_" );
+			} else {
+				statSlot( Messages.get(this, "dungeon_seed"), DungeonSeed.convertToCode(Dungeon.seed) );
+			}
 
 			pos += GAP;
 		}
@@ -162,7 +207,7 @@ public class WndHero extends WndTabbed {
 			add( txt );
 			
 			txt = PixelScene.renderTextBlock( value, 8 );
-			txt.setPos(WIDTH * 0.6f, pos);
+			txt.setPos(WIDTH * 0.55f, pos);
 			PixelScene.align(txt);
 			add( txt );
 			
@@ -185,7 +230,7 @@ public class WndHero extends WndTabbed {
 		@Override
 		protected void createChildren() {
 			super.createChildren();
-			pane = new TalentsPane(true);
+			pane = new TalentsPane(TalentButton.Mode.UPGRADE);
 			add(pane);
 		}
 
@@ -200,9 +245,6 @@ public class WndHero extends WndTabbed {
 	private class BuffsTab extends Component {
 		
 		private static final int GAP = 2;
-
-		private SmartTexture icons;
-		private TextureFilm film;
 		
 		private float pos;
 		private ScrollPane buffList;
@@ -210,8 +252,6 @@ public class WndHero extends WndTabbed {
 
 		@Override
 		protected void createChildren() {
-			icons = TextureCache.get( Assets.Interfaces.BUFFS_LARGE );
-			film = new TextureFilm( icons, 16, 16 );
 
 			super.createChildren();
 
@@ -260,15 +300,12 @@ public class WndHero extends WndTabbed {
 			public BuffSlot( Buff buff ){
 				super();
 				this.buff = buff;
-				int index = buff.icon();
 
-				icon = new Image( icons );
-				icon.frame( film.get( index ) );
-				buff.tintIcon(icon);
+				icon = new BuffIcon(buff, true);
 				icon.y = this.y;
 				add( icon );
 
-				txt = PixelScene.renderTextBlock( buff.toString(), 8 );
+				txt = PixelScene.renderTextBlock( Messages.titleCase(buff.name()), 8 );
 				txt.setPos(
 						icon.width + GAP,
 						this.y + (icon.height - txt.height()) / 2
@@ -282,10 +319,12 @@ public class WndHero extends WndTabbed {
 			protected void layout() {
 				super.layout();
 				icon.y = this.y;
+				txt.maxWidth((int)(width - icon.width()));
 				txt.setPos(
 						icon.width + GAP,
 						this.y + (icon.height - txt.height()) / 2
 				);
+				PixelScene.align(txt);
 			}
 			
 			protected boolean onClick ( float x, float y ) {

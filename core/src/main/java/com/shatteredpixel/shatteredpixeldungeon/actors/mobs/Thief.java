@@ -3,7 +3,7 @@
  * Copyright (C) 2012-2015 Oleg Dolya
  *
  * Shattered Pixel Dungeon
- * Copyright (C) 2014-2021 Evan Debenham
+ * Copyright (C) 2014-2024 Evan Debenham
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -23,8 +23,6 @@ package com.shatteredpixel.shatteredpixeldungeon.actors.mobs;
 
 import com.shatteredpixel.shatteredpixeldungeon.Dungeon;
 import com.shatteredpixel.shatteredpixeldungeon.actors.Char;
-import com.shatteredpixel.shatteredpixeldungeon.actors.buffs.Corruption;
-import com.shatteredpixel.shatteredpixeldungeon.actors.buffs.Terror;
 import com.shatteredpixel.shatteredpixeldungeon.actors.hero.Hero;
 import com.shatteredpixel.shatteredpixeldungeon.effects.CellEmitter;
 import com.shatteredpixel.shatteredpixeldungeon.effects.Speck;
@@ -33,7 +31,6 @@ import com.shatteredpixel.shatteredpixeldungeon.items.Gold;
 import com.shatteredpixel.shatteredpixeldungeon.items.Honeypot;
 import com.shatteredpixel.shatteredpixeldungeon.items.Item;
 import com.shatteredpixel.shatteredpixeldungeon.messages.Messages;
-import com.shatteredpixel.shatteredpixeldungeon.sprites.CharSprite;
 import com.shatteredpixel.shatteredpixeldungeon.sprites.ThiefSprite;
 import com.shatteredpixel.shatteredpixeldungeon.utils.GLog;
 import com.watabou.utils.Bundle;
@@ -53,7 +50,7 @@ public class Thief extends Mob {
 		maxLvl = 11;
 
 		loot = Random.oneOf(Generator.Category.RING, Generator.Category.ARTIFACT);
-		lootChance = 0.03f; //initially, see rollToDropLoot
+		lootChance = 0.03f; //initially, see lootChance()
 
 		WANDERING = new Wandering();
 		FLEEING = new Fleeing();
@@ -83,14 +80,21 @@ public class Thief extends Mob {
 
 	@Override
 	public int damageRoll() {
-		return Random.NormalIntRange( 1, 10 );
+		return Char.combatRoll( 1, 10 );
 	}
 
 	@Override
 	public float attackDelay() {
 		return super.attackDelay()*0.5f;
 	}
-	
+
+	@Override
+	public float lootChance() {
+		//each drop makes future drops 1/3 as likely
+		// so loot chance looks like: 1/33, 1/100, 1/300, 1/900, etc.
+		return super.lootChance() * (float)Math.pow(1/3f, Dungeon.LimitedDrops.THEIF_MISC.count);
+	}
+
 	@Override
 	public void rollToDropLoot() {
 		if (item != null) {
@@ -99,14 +103,11 @@ public class Thief extends Mob {
 			if (item instanceof Honeypot.ShatteredPot) ((Honeypot.ShatteredPot)item).dropPot( this, pos );
 			item = null;
 		}
-		//each drop makes future drops 1/3 as likely
-		// so loot chance looks like: 1/33, 1/100, 1/300, 1/900, etc.
-		lootChance *= Math.pow(1/3f, Dungeon.LimitedDrops.THEIF_MISC.count);
 		super.rollToDropLoot();
 	}
 
 	@Override
-	protected Item createLoot() {
+	public Item createLoot() {
 		Dungeon.LimitedDrops.THEIF_MISC.count++;
 		return super.createLoot();
 	}
@@ -118,7 +119,7 @@ public class Thief extends Mob {
 
 	@Override
 	public int drRoll() {
-		return Random.NormalIntRange(0, 3);
+		return super.drRoll() + Char.combatRoll(0, 3);
 	}
 
 	@Override
@@ -195,42 +196,34 @@ public class Thief extends Mob {
 
 	private class Fleeing extends Mob.Fleeing {
 		@Override
-		protected void nowhereToRun() {
-			if (buff( Terror.class ) == null && buff( Corruption.class ) == null) {
-				if (enemySeen) {
-					sprite.showStatus(CharSprite.NEGATIVE, Messages.get(Mob.class, "rage"));
-					state = HUNTING;
-				} else if (item != null
-						&& !Dungeon.level.heroFOV[pos]
-						&& Dungeon.level.distance(Dungeon.hero.pos, pos) >= 6) {
+		protected void escaped() {
+			if (item != null
+					&& !Dungeon.level.heroFOV[pos]
+					&& Dungeon.level.distance(Dungeon.hero.pos, pos) >= 6) {
 
-					int count = 32;
-					int newPos;
-					do {
-						newPos = Dungeon.level.randomRespawnCell( Thief.this );
-						if (count-- <= 0) {
-							break;
-						}
-					} while (newPos == -1 || Dungeon.level.heroFOV[newPos] || Dungeon.level.distance(newPos, pos) < (count/3));
-
-					if (newPos != -1) {
-
-						if (Dungeon.level.heroFOV[pos]) CellEmitter.get(pos).burst(Speck.factory(Speck.WOOL), 6);
-						pos = newPos;
-						sprite.place( pos );
-						sprite.visible = Dungeon.level.heroFOV[pos];
-						if (Dungeon.level.heroFOV[pos]) CellEmitter.get(pos).burst(Speck.factory(Speck.WOOL), 6);
-
+				int count = 32;
+				int newPos;
+				do {
+					newPos = Dungeon.level.randomRespawnCell( Thief.this );
+					if (count-- <= 0) {
+						break;
 					}
+				} while (newPos == -1 || Dungeon.level.heroFOV[newPos] || Dungeon.level.distance(newPos, pos) < (count/3));
 
-					if (item != null) GLog.n( Messages.get(Thief.class, "escapes", item.name()));
-					item = null;
-					state = WANDERING;
-				} else {
-					state = WANDERING;
+				if (newPos != -1) {
+
+					pos = newPos;
+					sprite.place( pos );
+					sprite.visible = Dungeon.level.heroFOV[pos];
+					if (Dungeon.level.heroFOV[pos]) CellEmitter.get(pos).burst(Speck.factory(Speck.WOOL), 6);
+
 				}
+
+				if (item != null) GLog.n( Messages.get(Thief.class, "escapes", item.name()));
+				item = null;
+				state = WANDERING;
 			} else {
-				super.nowhereToRun();
+				state = WANDERING;
 			}
 		}
 	}

@@ -3,7 +3,7 @@
  * Copyright (C) 2012-2015 Oleg Dolya
  *
  * Shattered Pixel Dungeon
- * Copyright (C) 2014-2021 Evan Debenham
+ * Copyright (C) 2014-2024 Evan Debenham
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -24,9 +24,10 @@ package com.shatteredpixel.shatteredpixeldungeon.levels.rooms.sewerboss;
 import com.shatteredpixel.shatteredpixeldungeon.Assets;
 import com.shatteredpixel.shatteredpixeldungeon.levels.Level;
 import com.shatteredpixel.shatteredpixeldungeon.levels.Terrain;
+import com.shatteredpixel.shatteredpixeldungeon.levels.features.LevelTransition;
 import com.shatteredpixel.shatteredpixeldungeon.levels.painters.Painter;
 import com.shatteredpixel.shatteredpixeldungeon.levels.rooms.Room;
-import com.shatteredpixel.shatteredpixeldungeon.levels.rooms.standard.ExitRoom;
+import com.shatteredpixel.shatteredpixeldungeon.levels.rooms.standard.exit.ExitRoom;
 import com.shatteredpixel.shatteredpixeldungeon.tiles.CustomTilemap;
 import com.watabou.noosa.Image;
 import com.watabou.noosa.Tilemap;
@@ -58,8 +59,13 @@ public class SewerBossExitRoom extends ExitRoom {
 		Painter.fill( level, c.x-1, c.y-1, 3, 2, Terrain.WALL );
 		Painter.fill( level, c.x-1, c.y+1, 3, 1, Terrain.EMPTY_SP );
 		
-		level.exit = level.pointToCell(c);
-		Painter.set( level, level.exit, Terrain.LOCKED_EXIT );
+		int exitCell = level.pointToCell(c);
+		Painter.set( level, exitCell, Terrain.LOCKED_EXIT );
+		LevelTransition exit = new LevelTransition(level, exitCell, LevelTransition.Type.REGULAR_EXIT);
+		exit.top--;
+		exit.left--;
+		exit.right++;
+		level.transitions.add(exit);
 		
 		CustomTilemap vis = new SewerExit();
 		vis.pos(c.x-1, c.y);

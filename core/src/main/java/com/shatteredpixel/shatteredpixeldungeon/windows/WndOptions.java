@@ -1,6 +1,29 @@
+/*
+ * Pixel Dungeon
+ * Copyright (C) 2012-2015 Oleg Dolya
+ *
+ * Shattered Pixel Dungeon
+ * Copyright (C) 2014-2024 Evan Debenham
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>
+ */
+
 package com.shatteredpixel.shatteredpixeldungeon.windows;
 
 import com.shatteredpixel.shatteredpixeldungeon.scenes.PixelScene;
+import com.shatteredpixel.shatteredpixeldungeon.ui.IconButton;
+import com.shatteredpixel.shatteredpixeldungeon.ui.Icons;
 import com.shatteredpixel.shatteredpixeldungeon.ui.RedButton;
 import com.shatteredpixel.shatteredpixeldungeon.ui.RenderedTextBlock;
 import com.shatteredpixel.shatteredpixeldungeon.ui.Window;
@@ -8,11 +31,11 @@ import com.watabou.noosa.Image;
 
 public class WndOptions extends Window {
 
-	private static final int WIDTH_P = 120;
-	private static final int WIDTH_L = 144;
+	protected static final int WIDTH_P = 120;
+	protected static final int WIDTH_L = 144;
 
-	private static final int MARGIN 		= 2;
-	private static final int BUTTON_HEIGHT	= 18;
+	protected static final int MARGIN 		= 2;
+	protected static final int BUTTON_HEIGHT	= 18;
 
 	public WndOptions(Image icon, String title, String message, String... options) {
 		super();
@@ -50,7 +73,7 @@ public class WndOptions extends Window {
 		layoutBody(pos, message, options);
 	}
 
-	private void layoutBody(float pos, String message, String... options){
+	protected void layoutBody(float pos, String message, String... options){
 		int width = PixelScene.landscape() ? WIDTH_L : WIDTH_P;
 
 		RenderedTextBlock tfMesage = PixelScene.renderTextBlock( 6 );
@@ -69,9 +92,23 @@ public class WndOptions extends Window {
 					onSelect( index );
 				}
 			};
+			if (hasIcon(i)) btn.icon(getIcon(i));
 			btn.enable(enabled(i));
-			btn.setRect( 0, pos, width, BUTTON_HEIGHT );
 			add( btn );
+
+			if (!hasInfo(i)) {
+				btn.setRect(0, pos, width, BUTTON_HEIGHT);
+			} else {
+				btn.setRect(0, pos, width - BUTTON_HEIGHT, BUTTON_HEIGHT);
+				IconButton info = new IconButton(Icons.get(Icons.INFO)){
+					@Override
+					protected void onClick() {
+						onInfo( index );
+					}
+				};
+				info.setRect(width-BUTTON_HEIGHT, pos, BUTTON_HEIGHT, BUTTON_HEIGHT);
+				add(info);
+			}
 
 			pos += BUTTON_HEIGHT + MARGIN;
 		}
@@ -84,4 +121,18 @@ public class WndOptions extends Window {
 	}
 	
 	protected void onSelect( int index ) {}
+
+	protected boolean hasInfo( int index ) {
+		return false;
+	}
+
+	protected void onInfo( int index ) {}
+
+	protected boolean hasIcon( int index ) {
+		return false;
+	}
+
+	protected Image getIcon( int index ) {
+		return null;
+	}
 }

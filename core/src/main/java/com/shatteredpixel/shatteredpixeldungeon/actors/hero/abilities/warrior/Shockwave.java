@@ -3,7 +3,7 @@
  * Copyright (C) 2012-2015 Oleg Dolya
  *
  * Shattered Pixel Dungeon
- * Copyright (C) 2014-2021 Evan Debenham
+ * Copyright (C) 2014-2024 Evan Debenham
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -33,14 +33,16 @@ import com.shatteredpixel.shatteredpixeldungeon.actors.hero.Hero;
 import com.shatteredpixel.shatteredpixeldungeon.actors.hero.HeroSubClass;
 import com.shatteredpixel.shatteredpixeldungeon.actors.hero.Talent;
 import com.shatteredpixel.shatteredpixeldungeon.actors.hero.abilities.ArmorAbility;
+import com.shatteredpixel.shatteredpixeldungeon.actors.mobs.Mimic;
 import com.shatteredpixel.shatteredpixeldungeon.effects.MagicMissile;
 import com.shatteredpixel.shatteredpixeldungeon.items.Item;
 import com.shatteredpixel.shatteredpixeldungeon.items.armor.ClassArmor;
 import com.shatteredpixel.shatteredpixeldungeon.mechanics.Ballistica;
 import com.shatteredpixel.shatteredpixeldungeon.mechanics.ConeAOE;
 import com.shatteredpixel.shatteredpixeldungeon.messages.Messages;
+import com.shatteredpixel.shatteredpixeldungeon.scenes.PixelScene;
+import com.shatteredpixel.shatteredpixeldungeon.ui.HeroIcon;
 import com.shatteredpixel.shatteredpixeldungeon.utils.GLog;
-import com.watabou.noosa.Camera;
 import com.watabou.noosa.audio.Sample;
 import com.watabou.utils.Callback;
 import com.watabou.utils.Random;
@@ -54,6 +56,11 @@ public class Shockwave extends ArmorAbility {
 	@Override
 	public String targetingPrompt() {
 		return Messages.get(this, "prompt");
+	}
+
+	@Override
+	public int targetedPos(Char user, int dst) {
+		return new Ballistica( user.pos, dst, Ballistica.STOP_SOLID | Ballistica.STOP_TARGET ).collisionPos;
 	}
 
 	@Override
@@ -92,7 +99,7 @@ public class Shockwave extends ArmorAbility {
 
 		hero.sprite.zap(target);
 		Sample.INSTANCE.play(Assets.Sounds.BLAST, 1f, 0.5f);
-		Camera.main.shake(2, 0.5f);
+		PixelScene.shake(2, 0.5f);
 		//final zap at 2/3 distance, for timing of the actual effect
 		MagicMissile.boltFromChar(hero.sprite.parent,
 				MagicMissile.FORCE_CONE,
@@ -107,14 +114,20 @@ public class Shockwave extends ArmorAbility {
 							Char ch = Actor.findChar(cell);
 							if (ch != null && ch.alignment != hero.alignment){
 								int scalingStr = hero.STR()-10;
-								int damage = Random.NormalIntRange(5 + scalingStr, 10 + 2*scalingStr);
-								damage = Math.round(damage * (1f + 0.15f*hero.pointsInTalent(Talent.SHOCK_FORCE)));
+								int damage = Char.combatRoll(5 + scalingStr, 10 + 2*scalingStr);
+								damage = Math.round(damage * (1f + 0.2f*hero.pointsInTalent(Talent.SHOCK_FORCE)));
 								damage -= ch.drRoll();
 
-								if (Random.Int(4) < hero.pointsInTalent(Talent.STRIKING_WAVE)){
+								if (hero.pointsInTalent(Talent.STRIKING_WAVE) == 4){
+									Buff.affect(hero, Talent.StrikingWaveTracker.class, 0f);
+								}
+
+								if (Random.Int(10) < 3*hero.pointsInTalent(Talent.STRIKING_WAVE)){
+									boolean wasEnemy = ch.alignment == Char.Alignment.ENEMY
+											|| (ch instanceof Mimic && ch.alignment == Char.Alignment.NEUTRAL);
 									damage = hero.attackProc(ch, damage);
 									ch.damage(damage, hero);
-									if (hero.subClass == HeroSubClass.GLADIATOR){
+									if (hero.subClass == HeroSubClass.GLADIATOR && wasEnemy){
 										Buff.affect( hero, Combo.class ).hit( ch );
 									}
 								} else {
@@ -136,6 +149,11 @@ public class Shockwave extends ArmorAbility {
 
 					}
 				});
+	}
+
+	@Override
+	public int icon() {
+		return HeroIcon.SHOCKWAVE;
 	}
 
 	@Override

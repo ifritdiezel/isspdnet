@@ -3,7 +3,7 @@
  * Copyright (C) 2012-2015 Oleg Dolya
  *
  * Shattered Pixel Dungeon
- * Copyright (C) 2014-2021 Evan Debenham
+ * Copyright (C) 2014-2024 Evan Debenham
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -24,6 +24,7 @@ package com.shatteredpixel.shatteredpixeldungeon.items.bags;
 import com.shatteredpixel.shatteredpixeldungeon.Badges;
 import com.shatteredpixel.shatteredpixeldungeon.Dungeon;
 import com.shatteredpixel.shatteredpixeldungeon.actors.Char;
+import com.shatteredpixel.shatteredpixeldungeon.actors.buffs.LostInventory;
 import com.shatteredpixel.shatteredpixeldungeon.actors.hero.Hero;
 import com.shatteredpixel.shatteredpixeldungeon.items.Item;
 import com.shatteredpixel.shatteredpixeldungeon.scenes.GameScene;
@@ -59,7 +60,7 @@ public class Bag extends Item implements Iterable<Item> {
 
 		super.execute( hero, action );
 
-		if (action.equals( AC_OPEN )) {
+		if (action.equals( AC_OPEN ) && !items.isEmpty()) {
 			
 			GameScene.show( new WndQuickBag( this ) );
 			
@@ -70,6 +71,11 @@ public class Bag extends Item implements Iterable<Item> {
 	public boolean collect( Bag container ) {
 
 		grabItems(container);
+
+		//if there are any quickslot placeholders that match items in this bag, assign them
+		for (Item item : items) {
+			Dungeon.quickslot.replacePlaceholder(item);
+		}
 
 		if (super.collect( container )) {
 			
@@ -86,8 +92,9 @@ public class Bag extends Item implements Iterable<Item> {
 	@Override
 	public void onDetach( ) {
 		this.owner = null;
-		for (Item item : items)
+		for (Item item : items) {
 			Dungeon.quickslot.clearItem(item);
+		}
 		updateQuickslot();
 	}
 
@@ -140,12 +147,23 @@ public class Bag extends Item implements Iterable<Item> {
 		bundle.put( ITEMS, items );
 	}
 
+	//temp variable so that bags can load contents even with lost inventory debuff
+	private boolean loading;
+
 	@Override
 	public void restoreFromBundle( Bundle bundle ) {
 		super.restoreFromBundle( bundle );
+
+		loading = true;
 		for (Bundlable item : bundle.getCollection( ITEMS )) {
-			if (item != null) ((Item)item).collect( this );
+			if (item != null){
+				if (!((Item)item).collect( this )){
+					//force-add the item if necessary, such as if its item category changed after an update
+					items.add((Item) item);
+				}
+			}
 		}
+		loading = false;
 	}
 	
 	public boolean contains( Item item ) {
@@ -160,6 +178,11 @@ public class Bag extends Item implements Iterable<Item> {
 	}
 
 	public boolean canHold( Item item ){
+		if (!loading && owner != null && owner.buff(LostInventory.class) != null
+			&& !item.keptThroughLostInventory()){
+			return false;
+		}
+
 		if (items.contains(item) || item instanceof Bag || items.size() < capacity()){
 			return true;
 		} else if (item.stackable) {

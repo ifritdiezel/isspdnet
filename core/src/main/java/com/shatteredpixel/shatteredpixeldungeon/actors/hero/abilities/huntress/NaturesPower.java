@@ -3,7 +3,7 @@
  * Copyright (C) 2012-2015 Oleg Dolya
  *
  * Shattered Pixel Dungeon
- * Copyright (C) 2014-2021 Evan Debenham
+ * Copyright (C) 2014-2024 Evan Debenham
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -31,8 +31,8 @@ import com.shatteredpixel.shatteredpixeldungeon.actors.hero.Talent;
 import com.shatteredpixel.shatteredpixeldungeon.actors.hero.abilities.ArmorAbility;
 import com.shatteredpixel.shatteredpixeldungeon.effects.particles.LeafParticle;
 import com.shatteredpixel.shatteredpixeldungeon.items.armor.ClassArmor;
-import com.shatteredpixel.shatteredpixeldungeon.messages.Messages;
 import com.shatteredpixel.shatteredpixeldungeon.ui.BuffIndicator;
+import com.shatteredpixel.shatteredpixeldungeon.ui.HeroIcon;
 import com.watabou.noosa.audio.Sample;
 
 public class NaturesPower extends ArmorAbility {
@@ -58,11 +58,20 @@ public class NaturesPower extends ArmorAbility {
 	}
 
 	@Override
+	public int icon() {
+		return HeroIcon.NATURES_POWER;
+	}
+
+	@Override
 	public Talent[] talents() {
 		return new Talent[]{Talent.GROWING_POWER, Talent.NATURES_WRATH, Talent.WILD_MOMENTUM, Talent.HEROIC_ENERGY};
 	}
 
 	public static class naturesPowerTracker extends FlavourBuff{
+
+		{
+			type = buffType.POSITIVE;
+		}
 
 		public static final float DURATION = 8f;
 
@@ -77,22 +86,12 @@ public class NaturesPower extends ArmorAbility {
 
 		@Override
 		public int icon() {
-			return BuffIndicator.SHADOWS;
+			return BuffIndicator.NATURE_POWER;
 		}
 
 		@Override
 		public float iconFadePercent() {
 			return Math.max(0, (DURATION - visualcooldown()) / DURATION);
-		}
-
-		@Override
-		public String toString() {
-			return Messages.get(this, "name");
-		}
-
-		@Override
-		public String desc() {
-			return Messages.get(this, "desc", dispTurns(visualcooldown()));
 		}
 
 	}

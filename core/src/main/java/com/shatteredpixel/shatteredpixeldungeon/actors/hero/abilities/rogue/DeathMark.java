@@ -3,7 +3,7 @@
  * Copyright (C) 2012-2015 Oleg Dolya
  *
  * Shattered Pixel Dungeon
- * Copyright (C) 2014-2021 Evan Debenham
+ * Copyright (C) 2014-2024 Evan Debenham
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -33,32 +33,41 @@ import com.shatteredpixel.shatteredpixeldungeon.actors.buffs.Terror;
 import com.shatteredpixel.shatteredpixeldungeon.actors.hero.Hero;
 import com.shatteredpixel.shatteredpixeldungeon.actors.hero.Talent;
 import com.shatteredpixel.shatteredpixeldungeon.actors.hero.abilities.ArmorAbility;
+import com.shatteredpixel.shatteredpixeldungeon.effects.FloatingText;
 import com.shatteredpixel.shatteredpixeldungeon.items.armor.ClassArmor;
 import com.shatteredpixel.shatteredpixeldungeon.messages.Messages;
+import com.shatteredpixel.shatteredpixeldungeon.sprites.CharSprite;
 import com.shatteredpixel.shatteredpixeldungeon.ui.BuffIndicator;
-import com.shatteredpixel.shatteredpixeldungeon.utils.BArray;
+import com.shatteredpixel.shatteredpixeldungeon.ui.HeroIcon;
+import com.watabou.utils.BArray;
 import com.shatteredpixel.shatteredpixeldungeon.utils.GLog;
+import com.watabou.noosa.Image;
 import com.watabou.noosa.audio.Sample;
 import com.watabou.utils.Bundle;
 import com.watabou.utils.PathFinder;
 
 public class DeathMark extends ArmorAbility {
 
+	{
+		baseChargeUse = 25f;
+	}
+
 	@Override
 	public String targetingPrompt() {
 		return Messages.get(this, "prompt");
 	}
 
-	{
-		baseChargeUse = 25f;
+	@Override
+	public int targetedPos(Char user, int dst) {
+		return dst;
 	}
 
 	@Override
 	public float chargeUse( Hero hero ) {
 		float chargeUse = super.chargeUse(hero);
 		if (hero.buff(DoubleMarkTracker.class) != null){
-			//reduced charge use by 33%/55%/70%/80%
-			chargeUse *= Math.pow(0.67, hero.pointsInTalent(Talent.DOUBLE_MARK));
+			//reduced charge use by 30%/50%/65%/75%
+			chargeUse *= Math.pow(0.707, hero.pointsInTalent(Talent.DOUBLE_MARK));
 		}
 		return chargeUse;
 	}
@@ -71,7 +80,7 @@ public class DeathMark extends ArmorAbility {
 
 		Char ch = Actor.findChar(target);
 
-		if (ch == null){
+		if (ch == null || !Dungeon.level.heroFOV[target]){
 			GLog.w(Messages.get(this, "no_target"));
 			return;
 		} else if (ch.alignment != Char.Alignment.ENEMY){
@@ -80,7 +89,7 @@ public class DeathMark extends ArmorAbility {
 		}
 
 		if (ch != null){
-			Buff.affect(ch, DeathMarkTracker.class, 5f).setInitialHP(ch.HP);
+			Buff.affect(ch, DeathMarkTracker.class, DeathMarkTracker.DURATION).setInitialHP(ch.HP);
 		}
 
 		armor.charge -= chargeUse( hero );
@@ -128,11 +137,18 @@ public class DeathMark extends ArmorAbility {
 	public static class DoubleMarkTracker extends FlavourBuff{};
 
 	@Override
+	public int icon() {
+		return HeroIcon.DEATH_MARK;
+	}
+
+	@Override
 	public Talent[] talents() {
 		return new Talent[]{Talent.FEAR_THE_REAPER, Talent.DEATHLY_DURABILITY, Talent.DOUBLE_MARK, Talent.HEROIC_ENERGY};
 	}
 
 	public static class DeathMarkTracker extends FlavourBuff {
+
+		public static float DURATION = 5f;
 
 		int initialHP = 0;
 
@@ -143,18 +159,17 @@ public class DeathMark extends ArmorAbility {
 
 		@Override
 		public int icon() {
-			return BuffIndicator.MARK;
+			return BuffIndicator.INVERT_MARK;
 		}
 
 		@Override
-		public String toString() {
-			return Messages.get(this, "name");
+		public void tintIcon(Image icon) {
+			icon.hardlight(1f, 0.2f, 0.2f);
 		}
 
 		@Override
-		public String desc() {
-			//TODO show initial HP here?
-			return Messages.get(this, "desc", dispTurns(visualcooldown()));
+		public float iconFadePercent() {
+			return Math.max(0, (DURATION - visualcooldown()) / DURATION);
 		}
 
 		private void setInitialHP( int hp ){
@@ -185,6 +200,7 @@ public class DeathMark extends ArmorAbility {
 				target.die(this);
 				int shld = Math.round(initialHP * (0.125f*Dungeon.hero.pointsInTalent(Talent.DEATHLY_DURABILITY)));
 				if (shld > 0 && target.alignment != Char.Alignment.ALLY){
+					Dungeon.hero.sprite.showStatusWithIcon(CharSprite.POSITIVE, Integer.toString(shld), FloatingText.SHIELDING);
 					Buff.affect(Dungeon.hero, Barrier.class).setShield(shld);
 				}
 			}

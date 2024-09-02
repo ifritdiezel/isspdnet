@@ -3,7 +3,7 @@
  * Copyright (C) 2012-2015 Oleg Dolya
  *
  * Shattered Pixel Dungeon
- * Copyright (C) 2014-2021 Evan Debenham
+ * Copyright (C) 2014-2024 Evan Debenham
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -22,6 +22,7 @@
 package com.shatteredpixel.shatteredpixeldungeon.effects;
 
 import com.shatteredpixel.shatteredpixeldungeon.Assets;
+import com.shatteredpixel.shatteredpixeldungeon.scenes.PixelScene;
 import com.watabou.noosa.Game;
 import com.watabou.noosa.Image;
 import com.watabou.noosa.TextureFilm;
@@ -275,14 +276,14 @@ public class Speck extends Image {
 			break;
 			
 		case HEART:
-			speed.set( Random.Int( -10, +10 ), -40 );
+			speed.set( Random.IntRange( -10, +10 ), -40 );
 			angularSpeed = Random.Float( -45, +45 );
 			lifespan = 1f;
 			break;
 			
 		case BUBBLE:
 			speed.set( 0, -15 );
-			scale.set( Random.Float( 0.8f, 1 ) );
+			scale.set( PixelScene.align(Random.Float( 0.8f, 1 )) );
 			lifespan = Random.Float( 0.8f, 1.5f );
 			break;
 			

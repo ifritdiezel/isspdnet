@@ -3,7 +3,7 @@
  * Copyright (C) 2012-2015 Oleg Dolya
  *
  * Shattered Pixel Dungeon
- * Copyright (C) 2014-2021 Evan Debenham
+ * Copyright (C) 2014-2024 Evan Debenham
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -103,7 +103,15 @@ public class Vertexbuffer {
 		}
 	}
 
-	public static void refreshAllBuffers(){
+	public static void clear(){
+		synchronized (buffers) {
+			for (Vertexbuffer buf : buffers.toArray(new Vertexbuffer[0])) {
+				buf.delete();
+			}
+		}
+	}
+
+	public static void reload(){
 		synchronized (buffers) {
 			for (Vertexbuffer buf : buffers) {
 				buf.updateVertices();

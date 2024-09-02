@@ -3,7 +3,7 @@
  * Copyright (C) 2012-2015 Oleg Dolya
  *
  * Shattered Pixel Dungeon
- * Copyright (C) 2014-2021 Evan Debenham
+ * Copyright (C) 2014-2024 Evan Debenham
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -25,10 +25,16 @@ import com.shatteredpixel.shatteredpixeldungeon.Assets;
 import com.shatteredpixel.shatteredpixeldungeon.Dungeon;
 import com.shatteredpixel.shatteredpixeldungeon.actors.Actor;
 import com.shatteredpixel.shatteredpixeldungeon.actors.Char;
+import com.shatteredpixel.shatteredpixeldungeon.actors.buffs.AllyBuff;
+import com.shatteredpixel.shatteredpixeldungeon.actors.buffs.Amok;
 import com.shatteredpixel.shatteredpixeldungeon.actors.buffs.Blindness;
 import com.shatteredpixel.shatteredpixeldungeon.actors.buffs.Buff;
+import com.shatteredpixel.shatteredpixeldungeon.actors.buffs.Charm;
+import com.shatteredpixel.shatteredpixeldungeon.actors.buffs.Dread;
 import com.shatteredpixel.shatteredpixeldungeon.actors.buffs.Haste;
 import com.shatteredpixel.shatteredpixeldungeon.actors.buffs.Invisibility;
+import com.shatteredpixel.shatteredpixeldungeon.actors.buffs.Sleep;
+import com.shatteredpixel.shatteredpixeldungeon.actors.buffs.Terror;
 import com.shatteredpixel.shatteredpixeldungeon.actors.hero.Hero;
 import com.shatteredpixel.shatteredpixeldungeon.actors.hero.Talent;
 import com.shatteredpixel.shatteredpixeldungeon.actors.hero.abilities.ArmorAbility;
@@ -41,15 +47,20 @@ import com.shatteredpixel.shatteredpixeldungeon.items.armor.ClassArmor;
 import com.shatteredpixel.shatteredpixeldungeon.items.scrolls.ScrollOfTeleportation;
 import com.shatteredpixel.shatteredpixeldungeon.messages.Messages;
 import com.shatteredpixel.shatteredpixeldungeon.scenes.GameScene;
+import com.shatteredpixel.shatteredpixeldungeon.scenes.PixelScene;
 import com.shatteredpixel.shatteredpixeldungeon.sprites.MobSprite;
-import com.shatteredpixel.shatteredpixeldungeon.utils.BArray;
+import com.shatteredpixel.shatteredpixeldungeon.ui.HeroIcon;
 import com.shatteredpixel.shatteredpixeldungeon.utils.GLog;
 import com.watabou.noosa.TextureFilm;
 import com.watabou.noosa.audio.Sample;
+import com.watabou.utils.BArray;
 import com.watabou.utils.PathFinder;
-import com.watabou.utils.Random;
 
 public class SmokeBomb extends ArmorAbility {
+
+	{
+		baseChargeUse = 50;
+	}
 
 	@Override
 	public String targetingPrompt() {
@@ -57,12 +68,17 @@ public class SmokeBomb extends ArmorAbility {
 	}
 
 	@Override
+	public boolean useTargeting() {
+		return false;
+	}
+
+	@Override
 	public float chargeUse(Hero hero) {
 		if (!hero.hasTalent(Talent.SHADOW_STEP) || hero.invisible <= 0){
 			return super.chargeUse(hero);
 		} else {
-			//reduced charge use by 24%/42%/56%/67%
-			return (float)(super.chargeUse(hero) * Math.pow(0.76, hero.pointsInTalent(Talent.SHADOW_STEP)));
+			//reduced charge use by 16%/30%/41%/50%
+			return (float)(super.chargeUse(hero) * Math.pow(0.84, hero.pointsInTalent(Talent.SHADOW_STEP)));
 		}
 	}
 
@@ -70,11 +86,16 @@ public class SmokeBomb extends ArmorAbility {
 	protected void activate(ClassArmor armor, Hero hero, Integer target) {
 		if (target != null) {
 
-			PathFinder.buildDistanceMap(hero.pos, BArray.not(Dungeon.level.solid,null), 8);
+			if (target != hero.pos && hero.rooted){
+				PixelScene.shake( 1, 1f );
+				return;
+			}
+
+			PathFinder.buildDistanceMap(hero.pos, BArray.or(Dungeon.level.passable, Dungeon.level.avoid, null), 6);
 
 			if ( PathFinder.distance[target] == Integer.MAX_VALUE ||
 					!Dungeon.level.heroFOV[target] ||
-					Actor.findChar( target ) != null) {
+					(target != hero.pos && Actor.findChar( target ) != null)) {
 
 				GLog.w( Messages.get(this, "fov") );
 				return;
@@ -104,10 +125,12 @@ public class SmokeBomb extends ArmorAbility {
 					NinjaLog n = new NinjaLog();
 					n.pos = hero.pos;
 					GameScene.add(n);
+					Dungeon.level.occupyCell(n);
 				}
 
 				if (hero.hasTalent(Talent.HASTY_RETREAT)){
-					int duration = 1+hero.pointsInTalent(Talent.HASTY_RETREAT);
+					//effectively 1/2/3/4 turns
+					float duration = 0.67f + hero.pointsInTalent(Talent.HASTY_RETREAT);
 					Buff.affect(hero, Haste.class, duration);
 					Buff.affect(hero, Invisibility.class, duration);
 				}
@@ -126,6 +149,11 @@ public class SmokeBomb extends ArmorAbility {
 				hero.next();
 			}
 		}
+	}
+
+	@Override
+	public int icon() {
+		return HeroIcon.SMOKE_BOMB;
 	}
 
 	@Override
@@ -148,8 +176,21 @@ public class SmokeBomb extends ArmorAbility {
 
 		@Override
 		public int drRoll() {
-			return Random.NormalIntRange(Dungeon.hero.pointsInTalent(Talent.BODY_REPLACEMENT),
-					5*Dungeon.hero.pointsInTalent(Talent.BODY_REPLACEMENT));
+			int dr = super.drRoll();
+
+			dr += Char.combatRoll(Dungeon.hero.pointsInTalent(Talent.BODY_REPLACEMENT),
+					3*Dungeon.hero.pointsInTalent(Talent.BODY_REPLACEMENT));
+
+			return dr;
+		}
+
+		{
+			immunities.add( Dread.class );
+			immunities.add( Terror.class );
+			immunities.add( Amok.class );
+			immunities.add( Charm.class );
+			immunities.add( Sleep.class );
+			immunities.add( AllyBuff.class );
 		}
 
 	}

@@ -3,7 +3,7 @@
  * Copyright (C) 2012-2015 Oleg Dolya
  *
  * Shattered Pixel Dungeon
- * Copyright (C) 2014-2021 Evan Debenham
+ * Copyright (C) 2014-2024 Evan Debenham
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -35,38 +35,51 @@ import com.shatteredpixel.shatteredpixeldungeon.items.scrolls.Scroll;
 import com.shatteredpixel.shatteredpixeldungeon.items.scrolls.ScrollOfTransmutation;
 import com.shatteredpixel.shatteredpixeldungeon.items.scrolls.exotic.ExoticScroll;
 import com.shatteredpixel.shatteredpixeldungeon.items.stones.Runestone;
+import com.shatteredpixel.shatteredpixeldungeon.items.weapon.missiles.darts.TippedDart;
 import com.shatteredpixel.shatteredpixeldungeon.messages.Messages;
 import com.shatteredpixel.shatteredpixeldungeon.plants.Plant;
 import com.shatteredpixel.shatteredpixeldungeon.sprites.ItemSpriteSheet;
 import com.shatteredpixel.shatteredpixeldungeon.utils.GLog;
-import com.shatteredpixel.shatteredpixeldungeon.windows.WndBag;
 import com.watabou.utils.Reflection;
 
 public class Recycle extends InventorySpell {
 	
 	{
 		image = ItemSpriteSheet.RECYCLE;
-		mode = WndBag.Mode.RECYCLABLE;
+
+		talentFactor = 2;
+		talentChance = 1/(float)Recipe.OUT_QUANTITY;
 	}
-	
+
+	@Override
+	protected boolean usableOnItem(Item item) {
+		return (item instanceof Potion && !(item instanceof Elixir || item instanceof Brew)) ||
+				item instanceof Scroll ||
+				item instanceof Plant.Seed ||
+				item instanceof Runestone ||
+				item instanceof TippedDart;
+	}
+
 	@Override
 	protected void onItemSelected(Item item) {
 		Item result;
 		do {
 			if (item instanceof Potion) {
-				result = Generator.random(Generator.Category.POTION);
+				result = Generator.randomUsingDefaults(Generator.Category.POTION);
 				if (item instanceof ExoticPotion){
 					result = Reflection.newInstance(ExoticPotion.regToExo.get(result.getClass()));
 				}
 			} else if (item instanceof Scroll) {
-				result = Generator.random(Generator.Category.SCROLL);
+				result = Generator.randomUsingDefaults(Generator.Category.SCROLL);
 				if (item instanceof ExoticScroll){
 					result = Reflection.newInstance(ExoticScroll.regToExo.get(result.getClass()));
 				}
 			} else if (item instanceof Plant.Seed) {
-				result = Generator.random(Generator.Category.SEED);
+				result = Generator.randomUsingDefaults(Generator.Category.SEED);
+			} else if (item instanceof Runestone) {
+				result = Generator.randomUsingDefaults(Generator.Category.STONE);
 			} else {
-				result = Generator.random(Generator.Category.STONE);
+				result = TippedDart.randomTipped(1);
 			}
 		} while (result.getClass() == item.getClass() || Challenges.isItemBlocked(result));
 		
@@ -79,29 +92,28 @@ public class Recycle extends InventorySpell {
 		curUser.sprite.emitter().start(Speck.factory(Speck.CHANGE), 0.2f, 10);
 	}
 	
-	public static boolean isRecyclable(Item item){
-		return (item instanceof Potion && !(item instanceof Elixir || item instanceof Brew)) ||
-				item instanceof Scroll ||
-				item instanceof Plant.Seed ||
-				item instanceof Runestone;
-	}
-	
 	@Override
 	public int value() {
-		//prices of ingredients, divided by output quantity
-		return Math.round(quantity * ((50 + 40) / 8f));
+		return (int)(60 * (quantity/(float)Recipe.OUT_QUANTITY));
+	}
+
+	@Override
+	public int energyVal() {
+		return (int)(12 * (quantity/(float)Recipe.OUT_QUANTITY));
 	}
 	
 	public static class Recipe extends com.shatteredpixel.shatteredpixeldungeon.items.Recipe.SimpleRecipe {
+
+		private static final int OUT_QUANTITY = 12;
 		
 		{
-			inputs =  new Class[]{ScrollOfTransmutation.class, ArcaneCatalyst.class};
-			inQuantity = new int[]{1, 1};
+			inputs =  new Class[]{ScrollOfTransmutation.class};
+			inQuantity = new int[]{1};
 			
-			cost = 6;
+			cost = 12;
 			
 			output = Recycle.class;
-			outQuantity = 8;
+			outQuantity = OUT_QUANTITY;
 		}
 		
 	}

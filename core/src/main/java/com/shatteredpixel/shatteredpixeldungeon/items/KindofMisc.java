@@ -3,7 +3,7 @@
  * Copyright (C) 2012-2015 Oleg Dolya
  *
  * Shattered Pixel Dungeon
- * Copyright (C) 2014-2021 Evan Debenham
+ * Copyright (C) 2014-2024 Evan Debenham
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -34,8 +34,6 @@ import com.shatteredpixel.shatteredpixeldungeon.windows.WndOptions;
 
 
 public abstract class KindofMisc extends EquipableItem {
-
-	private static final float TIME_TO_EQUIP = 1f;
 
 	@Override
 	public boolean doEquip(final Hero hero) {
@@ -88,16 +86,20 @@ public abstract class KindofMisc extends EquipableItem {
 					new WndOptions(new ItemSprite(this),
 							Messages.get(KindofMisc.class, "unequip_title"),
 							Messages.get(KindofMisc.class, "unequip_message"),
-							miscs[0] == null ? "---" : Messages.titleCase(miscs[0].toString()),
-							miscs[1] == null ? "---" : Messages.titleCase(miscs[1].toString()),
-							miscs[2] == null ? "---" : Messages.titleCase(miscs[2].toString())) {
+							miscs[0] == null ? "---" : Messages.titleCase(miscs[0].title()),
+							miscs[1] == null ? "---" : Messages.titleCase(miscs[1].title()),
+							miscs[2] == null ? "---" : Messages.titleCase(miscs[2].title())) {
 
 						@Override
 						protected void onSelect(int index) {
 
 							KindofMisc equipped = miscs[index];
+							//we directly remove the item because we want to have inventory capacity
+							// to unequip the equipped one, but don't want to trigger any other
+							// item detaching logic
 							int slot = Dungeon.quickslot.getSlot(KindofMisc.this);
-							detach(hero.belongings.backpack);
+							slotOfUnequipped = -1;
+							Dungeon.hero.belongings.backpack.items.remove(KindofMisc.this);
 							if (equipped.doUnequip(hero, true, false)) {
 								//swap out equip in misc slot if needed
 								if (index == 0 && KindofMisc.this instanceof Ring){
@@ -107,11 +109,16 @@ public abstract class KindofMisc extends EquipableItem {
 									hero.belongings.ring = (Ring) hero.belongings.misc;
 									hero.belongings.misc = null;
 								}
+								Dungeon.hero.belongings.backpack.items.add(KindofMisc.this);
 								doEquip(hero);
 							} else {
-								collect();
+								Dungeon.hero.belongings.backpack.items.add(KindofMisc.this);
 							}
-							if (slot != -1) Dungeon.quickslot.setSlot(slot, KindofMisc.this);
+							if (slot != -1) {
+								Dungeon.quickslot.setSlot(slot, KindofMisc.this);
+							} else if (slotOfUnequipped != -1 && defaultAction() != null){
+								Dungeon.quickslot.setSlot(slotOfUnequipped, KindofMisc.this);
+							}
 							updateQuickslot();
 						}
 
@@ -144,7 +151,7 @@ public abstract class KindofMisc extends EquipableItem {
 				GLog.n( Messages.get(this, "equip_cursed", this) );
 			}
 
-			hero.spendAndNext( TIME_TO_EQUIP );
+			hero.spendAndNext( timeToEquip(hero) );
 			return true;
 
 		}
@@ -174,9 +181,9 @@ public abstract class KindofMisc extends EquipableItem {
 
 	@Override
 	public boolean isEquipped( Hero hero ) {
-		return hero.belongings.artifact == this
-				|| hero.belongings.misc == this
-				|| hero.belongings.ring == this;
+		return hero.belongings.artifact() == this
+				|| hero.belongings.misc() == this
+				|| hero.belongings.ring() == this;
 	}
 
 }

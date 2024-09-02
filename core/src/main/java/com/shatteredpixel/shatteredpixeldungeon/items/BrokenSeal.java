@@ -3,7 +3,7 @@
  * Copyright (C) 2012-2015 Oleg Dolya
  *
  * Shattered Pixel Dungeon
- * Copyright (C) 2014-2021 Evan Debenham
+ * Copyright (C) 2014-2024 Evan Debenham
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -23,10 +23,14 @@ package com.shatteredpixel.shatteredpixeldungeon.items;
 
 import com.shatteredpixel.shatteredpixeldungeon.Assets;
 import com.shatteredpixel.shatteredpixeldungeon.Dungeon;
+import com.shatteredpixel.shatteredpixeldungeon.actors.buffs.Regeneration;
 import com.shatteredpixel.shatteredpixeldungeon.actors.buffs.ShieldBuff;
+import com.shatteredpixel.shatteredpixeldungeon.actors.hero.Belongings;
 import com.shatteredpixel.shatteredpixeldungeon.actors.hero.Hero;
+import com.shatteredpixel.shatteredpixeldungeon.actors.hero.HeroClass;
 import com.shatteredpixel.shatteredpixeldungeon.actors.hero.Talent;
 import com.shatteredpixel.shatteredpixeldungeon.items.armor.Armor;
+import com.shatteredpixel.shatteredpixeldungeon.items.bags.Bag;
 import com.shatteredpixel.shatteredpixeldungeon.messages.Messages;
 import com.shatteredpixel.shatteredpixeldungeon.scenes.GameScene;
 import com.shatteredpixel.shatteredpixeldungeon.sprites.ItemSprite;
@@ -39,6 +43,7 @@ import com.watabou.noosa.audio.Sample;
 import com.watabou.utils.Bundle;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 
 public class BrokenSeal extends Item {
 
@@ -59,12 +64,31 @@ public class BrokenSeal extends Item {
 
 	private Armor.Glyph glyph;
 
+	public boolean canTransferGlyph(){
+		if (glyph == null){
+			return false;
+		}
+		if (Dungeon.hero.pointsInTalent(Talent.RUNIC_TRANSFERENCE) == 2){
+			return true;
+		} else if (Dungeon.hero.pointsInTalent(Talent.RUNIC_TRANSFERENCE) == 1
+			&& (Arrays.asList(Armor.Glyph.common).contains(glyph.getClass())
+				|| Arrays.asList(Armor.Glyph.uncommon).contains(glyph.getClass()))){
+			return true;
+		} else {
+			return false;
+		}
+	}
+
 	public Armor.Glyph getGlyph(){
 		return glyph;
 	}
 
 	public void setGlyph( Armor.Glyph glyph ){
 		this.glyph = glyph;
+	}
+
+	public int maxShield( int armTier, int armLvl ){
+		return armTier + armLvl + Dungeon.hero.pointsInTalent(Talent.IRON_WILL);
 	}
 
 	@Override
@@ -86,7 +110,7 @@ public class BrokenSeal extends Item {
 
 		if (action.equals(AC_AFFIX)){
 			curItem = this;
-			GameScene.selectItem(armorSelector, WndBag.Mode.ARMOR, Messages.get(this, "prompt"));
+			GameScene.selectItem(armorSelector);
 		} else if (action.equals(AC_INFO)) {
 			GameScene.show(new WndUseItem(null, this));
 		}
@@ -98,7 +122,23 @@ public class BrokenSeal extends Item {
 		return level() == 0;
 	}
 
-	protected static WndBag.Listener armorSelector = new WndBag.Listener() {
+	protected static WndBag.ItemSelector armorSelector = new WndBag.ItemSelector() {
+
+		@Override
+		public String textPrompt() {
+			return  Messages.get(BrokenSeal.class, "prompt");
+		}
+
+		@Override
+		public Class<?extends Bag> preferredBag(){
+			return Belongings.Backpack.class;
+		}
+
+		@Override
+		public boolean itemSelectable(Item item) {
+			return item instanceof Armor;
+		}
+
 		@Override
 		public void onSelect( Item item ) {
 			BrokenSeal seal = (BrokenSeal) curItem;
@@ -107,9 +147,8 @@ public class BrokenSeal extends Item {
 				if (!armor.levelKnown){
 					GLog.w(Messages.get(BrokenSeal.class, "unknown_armor"));
 
-				} else if ((armor.cursed || armor.level() < 0)
-						&& (seal.getGlyph() == null || !seal.getGlyph().curse())){
-					GLog.w(Messages.get(BrokenSeal.class, "degraded_armor"));
+				} else if (armor.cursed && (seal.getGlyph() == null || !seal.getGlyph().curse())){
+					GLog.w(Messages.get(BrokenSeal.class, "cursed_armor"));
 
 				} else if (armor.glyph != null && seal.getGlyph() != null
 						&& armor.glyph.getClass() != seal.getGlyph().getClass()) {
@@ -163,7 +202,7 @@ public class BrokenSeal extends Item {
 
 		@Override
 		public synchronized boolean act() {
-			if (shielding() < maxShield()) {
+			if (Regeneration.regenOn() && shielding() < maxShield()) {
 				partialShield += 1/30f;
 			}
 			
@@ -191,8 +230,13 @@ public class BrokenSeal extends Item {
 		}
 
 		public synchronized int maxShield() {
-			if (armor != null && armor.isEquipped((Hero)target)) {
-				return armor.tier + armor.level() + ((Hero) target).pointsInTalent(Talent.IRON_WILL);
+			//metamorphed iron will logic
+			if (((Hero)target).heroClass != HeroClass.WARRIOR && ((Hero) target).hasTalent(Talent.IRON_WILL)){
+				return ((Hero) target).pointsInTalent(Talent.IRON_WILL);
+			}
+
+			if (armor != null && armor.isEquipped((Hero)target) && armor.checkSeal() != null) {
+				return armor.checkSeal().maxShield(armor.tier, armor.level());
 			} else {
 				return 0;
 			}

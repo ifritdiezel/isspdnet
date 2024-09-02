@@ -3,7 +3,7 @@
  * Copyright (C) 2012-2015 Oleg Dolya
  *
  * Shattered Pixel Dungeon
- * Copyright (C) 2014-2021 Evan Debenham
+ * Copyright (C) 2014-2024 Evan Debenham
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -31,10 +31,9 @@ import com.shatteredpixel.shatteredpixeldungeon.actors.mobs.Mob;
 import com.shatteredpixel.shatteredpixeldungeon.effects.CellEmitter;
 import com.shatteredpixel.shatteredpixeldungeon.effects.Speck;
 import com.shatteredpixel.shatteredpixeldungeon.items.Heap;
-import com.shatteredpixel.shatteredpixeldungeon.messages.Messages;
 import com.shatteredpixel.shatteredpixeldungeon.sprites.ItemSpriteSheet;
+import com.shatteredpixel.shatteredpixeldungeon.ui.BuffIndicator;
 import com.watabou.noosa.audio.Sample;
-import com.watabou.utils.Bundle;
 
 public class StoneOfAggression extends Runestone {
 	
@@ -49,7 +48,7 @@ public class StoneOfAggression extends Runestone {
 		
 		if (ch != null) {
 			if (ch.alignment == Char.Alignment.ENEMY) {
-				Buff.prolong(ch, Aggression.class, Aggression.DURATION / 5f);
+				Buff.prolong(ch, Aggression.class, Aggression.DURATION / 4f);
 			} else {
 				Buff.prolong(ch, Aggression.class, Aggression.DURATION);
 			}
@@ -64,7 +63,7 @@ public class StoneOfAggression extends Runestone {
 		}
 		
 	}
-	
+
 	public static class Aggression extends FlavourBuff {
 		
 		public static final float DURATION = 20f;
@@ -73,25 +72,32 @@ public class StoneOfAggression extends Runestone {
 			type = buffType.NEGATIVE;
 			announced = true;
 		}
-		
+
 		@Override
-		public void storeInBundle( Bundle bundle ) {
-			super.storeInBundle(bundle);
+		public int icon() {
+			return BuffIndicator.TARGETED;
 		}
-		
+
 		@Override
-		public void restoreFromBundle( Bundle bundle ) {
-			super.restoreFromBundle( bundle );
+		public float iconFadePercent() {
+			if (target.alignment == Char.Alignment.ENEMY){
+				return Math.max(0, (DURATION/4f - visualcooldown()) / (DURATION/4f));
+			} else {
+				return Math.max(0, (DURATION - visualcooldown()) / DURATION);
+			}
 		}
-		
+
 		@Override
 		public void detach() {
-			//if our target is an enemy, reset the aggro of any enemies targeting it
+			//if our target is an enemy, reset any enemy-to-enemy aggro involving it
 			if (target.isAlive()) {
 				if (target.alignment == Char.Alignment.ENEMY) {
 					for (Mob m : Dungeon.level.mobs) {
 						if (m.alignment == Char.Alignment.ENEMY && m.isTargeting(target)) {
 							m.aggro(null);
+						}
+						if (target instanceof Mob && ((Mob) target).isTargeting(m)){
+							((Mob) target).aggro(null);
 						}
 					}
 				}
@@ -99,12 +105,7 @@ public class StoneOfAggression extends Runestone {
 			super.detach();
 			
 		}
-		
-		@Override
-		public String toString() {
-			return Messages.get(this, "name");
-		}
-		
+
 	}
 	
 }

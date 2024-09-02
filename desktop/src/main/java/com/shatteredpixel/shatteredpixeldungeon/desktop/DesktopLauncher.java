@@ -3,7 +3,7 @@
  * Copyright (C) 2012-2015 Oleg Dolya
  *
  * Shattered Pixel Dungeon
- * Copyright (C) 2014-2021 Evan Debenham
+ * Copyright (C) 2014-2024 Evan Debenham
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -22,12 +22,10 @@
 package com.shatteredpixel.shatteredpixeldungeon.desktop;
 
 import com.badlogic.gdx.Files;
-import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.backends.lwjgl3.Lwjgl3Application;
 import com.badlogic.gdx.backends.lwjgl3.Lwjgl3ApplicationConfiguration;
 import com.badlogic.gdx.backends.lwjgl3.Lwjgl3FileHandle;
 import com.badlogic.gdx.backends.lwjgl3.Lwjgl3Preferences;
-import com.badlogic.gdx.files.FileHandle;
 import com.badlogic.gdx.utils.SharedLibraryLoader;
 import com.shatteredpixel.shatteredpixeldungeon.SPDSettings;
 import com.shatteredpixel.shatteredpixeldungeon.ShatteredPixelDungeon;
@@ -43,6 +41,7 @@ import org.lwjgl.util.tinyfd.TinyFileDialogs;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.util.Locale;
 
 public class DesktopLauncher {
 
@@ -50,6 +49,15 @@ public class DesktopLauncher {
 
 		if (!DesktopLaunchValidator.verifyValidJVMState(args)){
 			return;
+		}
+
+		//detection for FreeBSD (which is equivalent to linux for us)
+		//TODO might want to merge request this to libGDX
+		if (System.getProperty("os.name").contains("FreeBSD")) {
+			SharedLibraryLoader.isLinux = true;
+			//this overrides incorrect values set in SharedLibraryLoader's static initializer
+			SharedLibraryLoader.isIos = false;
+			SharedLibraryLoader.is64Bit = System.getProperty("os.arch").contains("64") || System.getProperty("os.arch").startsWith("armv8");
 		}
 		
 		final String title;
@@ -74,29 +82,36 @@ public class DesktopLauncher {
 				exceptionMsg = exceptionMsg.replace("com.shatteredpixel.shatteredpixeldungeon.", "");
 				exceptionMsg = exceptionMsg.replace("com.watabou.", "");
 				exceptionMsg = exceptionMsg.replace("com.badlogic.gdx.", "");
-				exceptionMsg = exceptionMsg.replace("\t", "    ");
+				exceptionMsg = exceptionMsg.replace("\t", "  "); //shortens length of tabs
 
-				if (exceptionMsg.contains("Couldn't create window")){
+				//replace ' and " with similar equivalents as tinyfd hates them for some reason
+				exceptionMsg = exceptionMsg.replace('\'', '’');
+				exceptionMsg = exceptionMsg.replace('"', '”');
+
+				if (exceptionMsg.length() > 1000){
+					exceptionMsg = exceptionMsg.substring(0, 1000) + "...";
+				}
+
+				if (exceptionMsg.contains("Couldn’t create window")){
 					TinyFileDialogs.tinyfd_messageBox(title + " Has Crashed!",
-							title + " wasn't able to initialize it's graphics display, sorry about that!\n\n" +
-									"This usually happens when a computer's graphics card does not support OpenGL 2.0+, or has misconfigured graphics drivers.\n\n" +
-									"If you're certain the game should be working on your computer, feel free to message the developer (Evan@ShatteredPixel.com)\n\n" +
-									"version: " + Game.version, "ok", "error", false);
+							title + " was not able to initialize its graphics display, sorry about that!\n\n" +
+									"This usually happens when your graphics card has misconfigured drivers or does not support openGL 2.0+.\n\n" +
+									"If you are certain the game should work on your computer, please message the developer (Evan@ShatteredPixel.com)\n\n" +
+									"version: " + Game.version + "\n" +
+									exceptionMsg,
+							"ok", "error", false);
 				} else {
 					TinyFileDialogs.tinyfd_messageBox(title + " Has Crashed!",
-							title + " has run into an error it can't recover from and has crashed, sorry about that!\n\n" +
+							title + " has run into an error it cannot recover from and has crashed, sorry about that!\n\n" +
 									"If you could, please email this error message to the developer (Evan@ShatteredPixel.com):\n\n" +
 									"version: " + Game.version + "\n" +
 									exceptionMsg,
 							"ok", "error", false);
 				}
-				if (Gdx.app != null) Gdx.app.exit();
+				System.exit(1);
 			}
 		});
-
-		String pkgName = DesktopLauncher.class.getPackage().getName();
-		Game.pkgName = pkgName.substring(0, pkgName.lastIndexOf("."));
-
+		
 		Game.version = DesktopLauncher.class.getPackage().getSpecificationVersion();
 		if (Game.version == null) {
 			Game.version = System.getProperty("Specification-Version");
@@ -118,42 +133,58 @@ public class DesktopLauncher {
 		Lwjgl3ApplicationConfiguration config = new Lwjgl3ApplicationConfiguration();
 		
 		config.setTitle( title );
-		
+
+		//if I were implementing this from scratch I would use the full implementation title for saves
+		// (e.g. /.shatteredpixel/shatteredpixeldungeon), but we have too much existing save
+		// date to worry about transferring at this point.
+		String vendor = DesktopLauncher.class.getPackage().getImplementationTitle();
+		if (vendor == null) {
+			vendor = System.getProperty("Implementation-Title");
+		}
+		vendor = vendor.split("\\.")[1];
+
 		String basePath = "";
+		Files.FileType baseFileType = null;
 		if (SharedLibraryLoader.isWindows) {
 			if (System.getProperties().getProperty("os.name").equals("Windows XP")) {
-				basePath = "Application Data/.isspdnet/isspdnet/";
+				basePath = "Application Data/." + vendor + "/" + title + "/";
 			} else {
-				basePath = "AppData/Roaming/.isspdnet/isspdnet/";
+				basePath = "AppData/Roaming/." + vendor + "/" + title + "/";
 			}
+			baseFileType = Files.FileType.External;
 		} else if (SharedLibraryLoader.isMac) {
-			basePath = "Library/Application Support/isspdnet/";
+			basePath = "Library/Application Support/" + title + "/";
+			baseFileType = Files.FileType.External;
 		} else if (SharedLibraryLoader.isLinux) {
-			basePath = ".isspdnet/isspdnet/";
+			String XDGHome = System.getenv("XDG_DATA_HOME");
+			if (XDGHome == null) XDGHome = System.getProperty("user.home") + "/.local/share";
+
+			String titleLinux = title.toLowerCase(Locale.ROOT).replace(" ", "-");
+			basePath = XDGHome + "/." + vendor + "/" + titleLinux + "/";
+
+			baseFileType = Files.FileType.Absolute;
 		}
 
-		//copy over prefs from old file location from legacy desktop codebase
-		FileHandle oldPrefs = new Lwjgl3FileHandle(basePath + "pd-prefs", Files.FileType.External);
-		FileHandle newPrefs = new Lwjgl3FileHandle(basePath + SPDSettings.DEFAULT_PREFS_FILE, Files.FileType.External);
-		if (oldPrefs.exists() && !newPrefs.exists()){
-			oldPrefs.copyTo(newPrefs);
-		}
-
-		config.setPreferencesConfig( basePath, Files.FileType.External );
-		SPDSettings.set( new Lwjgl3Preferences( SPDSettings.DEFAULT_PREFS_FILE, basePath) );
-		FileUtils.setDefaultFileProperties( Files.FileType.External, basePath );
+		config.setPreferencesConfig( basePath, baseFileType );
+		SPDSettings.set( new Lwjgl3Preferences( new Lwjgl3FileHandle(basePath + SPDSettings.DEFAULT_PREFS_FILE, baseFileType) ));
+		FileUtils.setDefaultFileProperties( baseFileType, basePath );
 		
-		config.setWindowSizeLimits( 480, 320, -1, -1 );
+		config.setWindowSizeLimits( 720, 400, -1, -1 );
 		Point p = SPDSettings.windowResolution();
 		config.setWindowedMode( p.x, p.y );
-		config.setAutoIconify( true );
+
+		config.setMaximized(SPDSettings.windowMaximized());
+
+		//going fullscreen on launch is a bit buggy
+		// so game always starts windowed and then switches in DesktopPlatformSupport.updateSystemUI
+		//config.setFullscreenMode(Lwjgl3ApplicationConfiguration.getDisplayMode());
 		
-		//we set fullscreen/maximized in the listener as doing it through the config seems to be buggy
+		//records whether window is maximized or not for settings
 		DesktopWindowListener listener = new DesktopWindowListener();
 		config.setWindowListener( listener );
 		
-		config.setWindowIcon("icons/icon_16.png", "icons/icon_32.png", "icons/icon_64.png",
-				"icons/icon_128.png", "icons/icon_256.png");
+		config.setWindowIcon("icons/icon_16.png", "icons/icon_32.png", "icons/icon_48.png",
+				"icons/icon_64.png", "icons/icon_128.png", "icons/icon_256.png");
 
 		new Lwjgl3Application(new ShatteredPixelDungeon(new DesktopPlatformSupport()), config);
 	}

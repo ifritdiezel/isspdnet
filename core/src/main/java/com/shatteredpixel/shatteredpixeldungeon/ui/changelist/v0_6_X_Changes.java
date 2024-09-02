@@ -3,7 +3,7 @@
  * Copyright (C) 2012-2015 Oleg Dolya
  *
  * Shattered Pixel Dungeon
- * Copyright (C) 2014-2021 Evan Debenham
+ * Copyright (C) 2014-2024 Evan Debenham
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -55,6 +55,8 @@ import com.shatteredpixel.shatteredpixeldungeon.scenes.ChangesScene;
 import com.shatteredpixel.shatteredpixeldungeon.sprites.CharSprite;
 import com.shatteredpixel.shatteredpixeldungeon.sprites.ItemSprite;
 import com.shatteredpixel.shatteredpixeldungeon.sprites.ItemSpriteSheet;
+import com.shatteredpixel.shatteredpixeldungeon.ui.BuffIcon;
+import com.shatteredpixel.shatteredpixeldungeon.ui.BuffIndicator;
 import com.shatteredpixel.shatteredpixeldungeon.ui.Icons;
 import com.shatteredpixel.shatteredpixeldungeon.ui.Window;
 import com.watabou.noosa.Image;
@@ -312,14 +314,14 @@ public class v0_6_X_Changes {
 		changes.hardlight( CharSprite.NEGATIVE );
 		changeInfos.add(changes);
 		
-		changes.addButton( new ChangeButton(new Image(Assets.Interfaces.BUFFS_LARGE, 64, 0, 16, 16), "Paralysis changes",
+		changes.addButton( new ChangeButton(new BuffIcon(BuffIndicator.PARALYSIS, true), "Paralysis changes",
 				"Paralysis is an extremely powerful debuff, and its ability to completely immobilize the player or an enemy while they are killed needs to be adjusted.\n" +
 				"\n" +
 				"Chance to resist paralysis is now based on all recent damage taken while paralyzed, instead of each specific instance of damage separately.\n" +
 				"\n" +
 				"This means that after taking around half current HP in damage, breaking from paralysis becomes very likely, and immediately re-applying paralysis will not reset this resist chance."));
 		
-		changes.addButton( new ChangeButton(new Image(Assets.Environment.TILES_SEWERS, 48, 48, 16, 16), "Chasm changes",
+		changes.addButton( new ChangeButton(new Image(Assets.Environment.TILES_SEWERS, 176, 16, 16, 16), "Chasm changes",
 				"Dropping enemies into chasms is a very fun way to deal with enemies, but killing an enemy instantly and getting almost the full reward is simply too strong. This change should keep killing via chasms fun and useful, without it being as strong.\n" +
 				"\n" +
 				"_-_ Enemies killed via chasms now only award 50% exp"));
@@ -395,7 +397,7 @@ public class v0_6_X_Changes {
 		changes.hardlight( CharSprite.WARNING );
 		changeInfos.add(changes);
 		
-		changes.addButton( new ChangeButton(new Image(Assets.Interfaces.BUFFS_LARGE, 32, 0, 16, 16), "Changes to debuffs and resistances",
+		changes.addButton( new ChangeButton(new BuffIcon(BuffIndicator.FIRE, true), "Changes to debuffs and resistances",
 				"The game's resistance system has been totally overhauled, to allow for more flexibility and consistency.\n\n" +
 				"Previously, if a character was resistant to something, its effect would be reduced by a random amount between 0% and 100%.\n\n" +
 				"Now, resistances are much less random, applying a specific reduction to harmful effects. Currently all resistances are 50%.\n\n" +
@@ -511,7 +513,7 @@ public class v0_6_X_Changes {
 				"\n" +
 				"Lastly, v0.6.2 (and v0.6.1) included some important AI changes that made character behaviour much more consistent when allies are concerned. This paved the way for ally additions in future updates."));
 		
-		changes.addButton( new ChangeButton( Icons.get(Icons.DEPTH), "Dungeon Secrets!",
+		changes.addButton( new ChangeButton( Icons.get(Icons.STAIRS), "Dungeon Secrets!",
 				"The secrets of the dungeon have been totally redesigned!\n\n" +
 				"_-_ Regular rooms can no longer be totally hidden\n\n" +
 				"_-_ 12 new secret rooms added, which are always hidden\n\n" +
@@ -709,7 +711,7 @@ public class v0_6_X_Changes {
 				"_-_ Reduced the numbers of games needed for the 'games played' badges from 10/100/500/2000 to 10/50/250/1000\n\n" +
 				"_-_ Blank badges shown in the badges menu are now accurate to how many badges you have left to unlock."));
 		
-		changes.addButton( new ChangeButton( Icons.get(Icons.DEPTH), "Dungeon Changes",
+		changes.addButton( new ChangeButton( Icons.get(Icons.STAIRS), "Dungeon Changes",
 				"_-_ Added 5 new regional rooms\n" +
 				"_-_ Added two new uncommon room types\n" +
 				"_-_ Added a new type of tunnel room\n\n" +
@@ -867,7 +869,7 @@ public class v0_6_X_Changes {
 				"\n" +
 				"I feel v0.6.0 also represents the start of another era in Shattered's development. While Shattered was still missing some big updates (most notably v0.8.0), after v0.6.0 Shattered started to resemble its current incarnation more than the original Pixel Dungeon."));
 		
-		changes.addButton( new ChangeButton( Icons.get(Icons.DEPTH), "Levelgen Overhaul!",
+		changes.addButton( new ChangeButton( Icons.get(Icons.STAIRS), "Levelgen Overhaul!",
 				"Level creation algorithm overhauled!\n\n" +
 				"_-_ Levels are now much less box-shaped\n" +
 				"_-_ Sewers are now smaller, caves+ are now larger\n" +

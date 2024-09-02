@@ -3,7 +3,7 @@
  * Copyright (C) 2012-2015 Oleg Dolya
  *
  * Shattered Pixel Dungeon
- * Copyright (C) 2014-2021 Evan Debenham
+ * Copyright (C) 2014-2024 Evan Debenham
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -36,7 +36,7 @@ import com.watabou.noosa.Image;
 public class WndCombo extends Window {
 
 	private static final int WIDTH_P = 120;
-	private static final int WIDTH_L = 160;
+	private static final int WIDTH_L = 180;
 
 	private static final int MARGIN  = 2;
 
@@ -55,16 +55,16 @@ public class WndCombo extends Window {
 		pos = title.bottom() + 3*MARGIN;
 
 		Image icon;
-		if (Dungeon.hero.belongings.weapon != null){
-			icon = new ItemSprite(Dungeon.hero.belongings.weapon.image, null);
+		if (Dungeon.hero.belongings.weapon() != null){
+			icon = new ItemSprite(Dungeon.hero.belongings.weapon().image, null);
 		} else {
 			icon = new ItemSprite(new Item(){ {image = ItemSpriteSheet.WEAPON_HOLDER; }});
 		}
 
 		for (Combo.ComboMove move : Combo.ComboMove.values()) {
-			Image ic = new Image(icon);
 
-			RedButton moveBtn = new RedButton(move.desc(combo.getComboCount()), 6){
+			String text = "_" + Messages.titleCase(move.title()) + " " + Messages.get(this, "combo_req", move.comboReq) + ":_ " + move.desc(combo.getComboCount());
+			RedButton moveBtn = new RedButton(text, 6){
 				@Override
 				protected void onClick() {
 					super.onClick();
@@ -72,8 +72,6 @@ public class WndCombo extends Window {
 					combo.useMove(move);
 				}
 			};
-			ic.tint(move.tintColor);
-			moveBtn.icon(ic);
 			moveBtn.leftJustify = true;
 			moveBtn.multiline = true;
 			moveBtn.setSize(width, moveBtn.reqHeight());

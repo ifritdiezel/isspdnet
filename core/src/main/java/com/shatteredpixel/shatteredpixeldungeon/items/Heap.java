@@ -3,7 +3,7 @@
  * Copyright (C) 2012-2015 Oleg Dolya
  *
  * Shattered Pixel Dungeon
- * Copyright (C) 2014-2021 Evan Debenham
+ * Copyright (C) 2014-2024 Evan Debenham
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -23,6 +23,7 @@ package com.shatteredpixel.shatteredpixeldungeon.items;
 
 import com.shatteredpixel.shatteredpixeldungeon.Assets;
 import com.shatteredpixel.shatteredpixeldungeon.Dungeon;
+import com.shatteredpixel.shatteredpixeldungeon.actors.Char;
 import com.shatteredpixel.shatteredpixeldungeon.actors.hero.Hero;
 import com.shatteredpixel.shatteredpixeldungeon.actors.mobs.Wraith;
 import com.shatteredpixel.shatteredpixeldungeon.actors.mobs.npcs.Shopkeeper;
@@ -37,12 +38,17 @@ import com.shatteredpixel.shatteredpixeldungeon.items.food.ChargrilledMeat;
 import com.shatteredpixel.shatteredpixeldungeon.items.food.FrozenCarpaccio;
 import com.shatteredpixel.shatteredpixeldungeon.items.food.MysteryMeat;
 import com.shatteredpixel.shatteredpixeldungeon.items.journal.DocumentPage;
+import com.shatteredpixel.shatteredpixeldungeon.items.journal.Guidebook;
 import com.shatteredpixel.shatteredpixeldungeon.items.potions.Potion;
 import com.shatteredpixel.shatteredpixeldungeon.items.rings.RingOfWealth;
 import com.shatteredpixel.shatteredpixeldungeon.items.scrolls.Scroll;
 import com.shatteredpixel.shatteredpixeldungeon.items.wands.Wand;
+import com.shatteredpixel.shatteredpixeldungeon.items.weapon.missiles.darts.Dart;
+import com.shatteredpixel.shatteredpixeldungeon.items.weapon.missiles.darts.TippedDart;
+import com.shatteredpixel.shatteredpixeldungeon.journal.Document;
 import com.shatteredpixel.shatteredpixeldungeon.messages.Messages;
 import com.shatteredpixel.shatteredpixeldungeon.sprites.ItemSprite;
+import com.shatteredpixel.shatteredpixeldungeon.utils.GLog;
 import com.watabou.noosa.audio.Sample;
 import com.watabou.utils.Bundlable;
 import com.watabou.utils.Bundle;
@@ -71,6 +77,7 @@ public class Heap implements Bundlable {
 	public ItemSprite sprite;
 	public boolean seen = false;
 	public boolean haunted = false;
+	public boolean autoExplored = false; //used to determine if this heap should count for exploration bonus
 	
 	public LinkedList<Item> items = new LinkedList<>();
 	
@@ -90,6 +97,10 @@ public class Heap implements Bundlable {
 			if (Wraith.spawnAt( pos ) == null) {
 				hero.sprite.emitter().burst( ShadowParticle.CURSE, 6 );
 				hero.damage( hero.HP / 2, this );
+				if (!hero.isAlive()){
+					Dungeon.fail(Wraith.class);
+					GLog.n( Messages.capitalize(Messages.get(Char.class, "kill", Messages.get(Wraith.class, "name"))));
+				}
 			}
 			Sample.INSTANCE.play( Assets.Sounds.CURSED );
 		}
@@ -152,8 +163,9 @@ public class Heap implements Bundlable {
 			items.remove( item );
 			
 		}
-		
-		if (item.dropsDownHeap && type != Type.FOR_SALE) {
+
+		//lost backpack must always be on top of a heap
+		if ((item.dropsDownHeap && type != Type.FOR_SALE) || peek() instanceof LostBackpack) {
 			items.add( item );
 		} else {
 			items.addFirst( item );
@@ -161,6 +173,13 @@ public class Heap implements Bundlable {
 		
 		if (sprite != null) {
 			sprite.view(this).place( pos );
+		}
+
+		if (TippedDart.lostDarts > 0){
+			Dart d = new Dart();
+			d.quantity(TippedDart.lostDarts);
+			TippedDart.lostDarts = 0;
+			drop(d);
 		}
 	}
 	
@@ -307,9 +326,8 @@ public class Heap implements Bundlable {
 				items.remove(item);
 				((Potion) item).shatter(pos);
 				frozen = true;
-			} else if (item instanceof Bomb){
-				((Bomb) item).fuse = null;
-				frozen = true;
+			} else if (item instanceof Bomb && ((Bomb) item).fuse != null){
+				frozen = frozen || ((Bomb) item).fuse.freeze();
 			}
 		}
 		
@@ -343,15 +361,14 @@ public class Heap implements Bundlable {
 		items.clear();
 	}
 
-	@Override
-	public String toString(){
+	public String title(){
 		switch(type){
 			case FOR_SALE:
 				Item i = peek();
 				if (size() == 1) {
-					return Messages.get(this, "for_sale", Shopkeeper.sellPrice(i), i.toString());
+					return Messages.get(this, "for_sale", Shopkeeper.sellPrice(i), i.title());
 				} else {
-					return i.toString();
+					return i.title();
 				}
 			case CHEST:
 				return Messages.get(this, "chest");
@@ -366,7 +383,7 @@ public class Heap implements Bundlable {
 			case REMAINS:
 				return Messages.get(this, "remains");
 			default:
-				return peek().toString();
+				return peek().title();
 		}
 	}
 
@@ -399,6 +416,7 @@ public class Heap implements Bundlable {
 	private static final String TYPE	= "type";
 	private static final String ITEMS	= "items";
 	private static final String HAUNTED	= "haunted";
+	private static final String AUTO_EXPLORED	= "auto_explored";
 	
 	@SuppressWarnings("unchecked")
 	@Override
@@ -413,23 +431,27 @@ public class Heap implements Bundlable {
 		//remove any document pages that either don't exist anymore or that the player already has
 		for (Item item : items.toArray(new Item[0])){
 			if (item instanceof DocumentPage
-					&& ( !((DocumentPage) item).document().pages().contains(((DocumentPage) item).page())
-					||    ((DocumentPage) item).document().hasPage(((DocumentPage) item).page()))){
+					&& ( !((DocumentPage) item).document().pageNames().contains(((DocumentPage) item).page())
+					||    ((DocumentPage) item).document().isPageFound(((DocumentPage) item).page()))){
+				items.remove(item);
+			}
+			if (item instanceof Guidebook && Document.ADVENTURERS_GUIDE.isPageRead(0)){
 				items.remove(item);
 			}
 		}
 		
 		haunted = bundle.getBoolean( HAUNTED );
-		
+		autoExplored = bundle.getBoolean( AUTO_EXPLORED );
 	}
 
 	@Override
 	public void storeInBundle( Bundle bundle ) {
 		bundle.put( POS, pos );
 		bundle.put( SEEN, seen );
-		bundle.put( TYPE, type.toString() );
+		bundle.put( TYPE, type );
 		bundle.put( ITEMS, items );
 		bundle.put( HAUNTED, haunted );
+		bundle.put( AUTO_EXPLORED, autoExplored );
 	}
 	
 }
