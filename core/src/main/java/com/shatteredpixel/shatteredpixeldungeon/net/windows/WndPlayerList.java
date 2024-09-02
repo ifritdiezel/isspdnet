@@ -26,7 +26,6 @@ import com.shatteredpixel.shatteredpixeldungeon.net.events.Receive;
 import com.shatteredpixel.shatteredpixeldungeon.scenes.PixelScene;
 import com.shatteredpixel.shatteredpixeldungeon.ui.RenderedTextBlock;
 import com.shatteredpixel.shatteredpixeldungeon.ui.ScrollPane;
-import com.watabou.noosa.ui.Button;
 import com.watabou.noosa.ui.Component;
 
 public class WndPlayerList extends NetWindow {
@@ -65,22 +64,22 @@ public class WndPlayerList extends NetWindow {
 		float ypos = 0;
 
 		for (int i=0; i < p.list.length; i++) {
-			float xpos = VGAP;
-
-			Receive.Player player = p.list[i];
-
-			PlayerRank playerRank = new PlayerRank(player, i+1, nickLbl.left()){
-				@Override
-				protected void onClick() {
-					if(player.depth != null)
-						runWindow(new WndInfoPlayer(player));
-				}
-			};
-			playerRank.setRect( xpos, ypos, width, 12 );
-
-			content.add( playerRank );
-
-			ypos=playerRank.bottom()+2;
+//			float xpos = VGAP;
+//
+//			Receive.Player player = p.list[i];
+//
+//			PlayerRank playerRank = new PlayerRank(player, i+1, nickLbl.left()){
+//				@Override
+//				protected void onClick() {
+//					if(player.depth != null)
+//						runWindow(new WndInfoPlayer(player));
+//				}
+//			};
+//			playerRank.setRect( xpos, ypos, width, 12 );
+//
+//			content.add( playerRank );
+//
+//			ypos=playerRank.bottom()+2;
 
 		}
 
@@ -88,37 +87,37 @@ public class WndPlayerList extends NetWindow {
 		list.setRect( 0, y, width, HEIGHT);
 	}
 
-	public static class PlayerRank extends Button {
-		private int order;
-		private RenderedTextBlock rank;
-		private RenderedTextBlock label;
-
-		private boolean enabled;
-		private float rankEnd;
-
-
-		public PlayerRank(Receive.Player player, int order, float rankEnd){
-			this.order = order;
-			this.enabled = player.depth != null;
-			this.rankEnd = rankEnd;
-
-			rank = PixelScene.renderTextBlock(enabled ? String.valueOf(order): "-", 11);
-			add(rank);
-
-			label = PixelScene.renderTextBlock(player.nick, 11);
-			add(label);
-		}
-
-		@Override
-		protected void layout() {
-			super.layout();
-			rank.setPos(VGAP, y);
-			label.setPos(rankEnd, y);
-			rank.alpha( enabled ? 1.0f : 0.3f );
-			label.alpha( enabled ? 1.0f : 0.3f );
-		}
-
-	}
+//	public static class PlayerRank extends Button {
+//		private int order;
+//		private RenderedTextBlock rank;
+//		private RenderedTextBlock label;
+//
+//		private boolean enabled;
+//		private float rankEnd;
+//
+//
+//		public PlayerRank(Receive.Player player, int order, float rankEnd){
+//			this.order = order;
+//			this.enabled = player.depth != null;
+//			this.rankEnd = rankEnd;
+//
+//			rank = PixelScene.renderTextBlock(enabled ? String.valueOf(order): "-", 11);
+//			add(rank);
+//
+//			label = PixelScene.renderTextBlock(player.nick, 11);
+//			add(label);
+//		}
+//
+//		@Override
+//		protected void layout() {
+//			super.layout();
+//			rank.setPos(VGAP, y);
+//			label.setPos(rankEnd, y);
+//			rank.alpha( enabled ? 1.0f : 0.3f );
+//			label.alpha( enabled ? 1.0f : 0.3f );
+//		}
+//
+//	}
 
 	public static HeroClass playerClassToHeroClass(int playerClass){
 		switch (playerClass){

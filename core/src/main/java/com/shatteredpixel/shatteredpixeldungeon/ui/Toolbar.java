@@ -45,6 +45,7 @@ import com.shatteredpixel.shatteredpixeldungeon.windows.WndBag;
 import com.shatteredpixel.shatteredpixeldungeon.windows.WndKeyBindings;
 import com.shatteredpixel.shatteredpixeldungeon.windows.WndMessage;
 import com.shatteredpixel.shatteredpixeldungeon.windows.WndQuickBag;
+import com.shatteredpixel.shatteredpixeldungeon.windows.WndTextInput;
 import com.shatteredpixel.shatteredpixeldungeon.windows.WndUseItem;
 import com.watabou.input.ControllerHandler;
 import com.watabou.input.GameAction;
@@ -257,7 +258,7 @@ public class Toolbar extends Component {
 			@Override
 			protected void onClick() {
 				examining = false;
-				platform.promptTextInput("Chat", " ", 80, false, "Send", "Cancel", new PlatformSupport.TextCallback() {
+				ShatteredPixelDungeon.scene().addToFront( new WndTextInput("Chat", "Send a message...","", 80, false, "Send", "Cancel") {
 					@Override
 					public void onSelect(boolean positive, String text) {
 						if(positive && text.trim().length()!=0){

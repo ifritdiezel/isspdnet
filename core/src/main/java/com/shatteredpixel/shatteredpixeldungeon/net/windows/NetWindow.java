@@ -53,6 +53,6 @@ public class NetWindow extends Window {
     }
 
     public static void showPlayerList(Receive.PlayerList p){
-        Game.runOnRenderThread(() -> ShatteredPixelDungeon.scene().add(new WndPlayerList(p)));
+        //Game.runOnRenderThread(() -> ShatteredPixelDungeon.scene().add(new WndPlayerList(p)));
     }
 }

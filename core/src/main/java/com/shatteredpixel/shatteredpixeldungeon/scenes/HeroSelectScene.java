@@ -184,7 +184,8 @@ public class HeroSelectScene extends PixelScene {
 		}
 
 		netBtn = new NetBtn();
-		netBtn.setRect(curX, Camera.main.height-netBtn.HEIGHT+3, netBtn.MIN_WIDTH, netBtn.HEIGHT);
+		//fixingproject
+		netBtn.setRect(0, Camera.main.height-netBtn.HEIGHT+3, netBtn.MIN_WIDTH, netBtn.HEIGHT);
 		add(netBtn);
 
 		optionsPane = new GameOptions();

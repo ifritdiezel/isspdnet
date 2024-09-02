@@ -1486,12 +1486,6 @@ public class GameScene extends PixelScene {
 				|| (!Dungeon.level.visited[cell] && !Dungeon.level.mapped[cell])) {
 			return;
 		}
-blablabla
-		Player player = Player.getPlayerAtCell(cell);
-		if (player != null) {
-			objects.add(player);
-			names.add(player.nick());
-		}
 
 		ArrayList<Object> objects = getObjectsAtCell(cell);
 
@@ -1524,6 +1518,11 @@ blablabla
 		} else if (Dungeon.level.heroFOV[cell]) {
 			Mob mob = (Mob) Actor.findChar(cell);
 			if (mob != null) objects.add(mob);
+		}
+
+		Player player = Player.getPlayerAtCell(cell);
+		if (player != null) {
+			objects.add(player);
 		}
 
 		Heap heap = Dungeon.level.heaps.get(cell);
