@@ -19,7 +19,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>
  */
 
-package com.saqfish.spdnet.services.updates;
+package com.shatteredpixel.shatteredpixeldungeon.services.updates;
 
 public class UpdateImpl {
 

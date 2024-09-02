@@ -19,7 +19,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>
  */
 
-package com.saqfish.spdnet.services.news;
+package com.shatteredpixel.shatteredpixeldungeon.services.news;
 
 import java.util.ArrayList;
 
